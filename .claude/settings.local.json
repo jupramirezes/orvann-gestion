@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx --yes create-vite temp-init --template react-ts)",
+      "Bash(cp -r temp-init/* .)",
+      "Bash(cp temp-init/.gitignore .)",
+      "Bash(cp temp-init/.eslintrc.cjs .)",
+      "Bash(rm -rf temp-init)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsx:*)"
+    ]
+  }
+}
