@@ -1,21 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
-import Layout from '@/components/Layout'
-import Dashboard from '@/pages/Dashboard'
-import Inventario from '@/pages/Inventario'
-import VentaRapida from '@/pages/VentaRapida'
-import Gastos from '@/pages/Gastos'
-import Caja from '@/pages/Caja'
-
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="inventario" element={<Inventario />} />
-        <Route path="venta" element={<VentaRapida />} />
-        <Route path="gastos" element={<Gastos />} />
-        <Route path="caja" element={<Caja />} />
-      </Route>
-    </Routes>
+    <main style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>
+      <h1>ORVANN Gestión</h1>
+      <p>Frontend en construcción. Ver docs/plan/03-fase1-tareas.md (Tarea 1.2).</p>
+    </main>
   )
 }

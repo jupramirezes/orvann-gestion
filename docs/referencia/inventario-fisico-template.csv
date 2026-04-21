@@ -1,0 +1,11 @@
+tipo,producto_base,color,talla,diseno,estampado,cantidad,costo_unit,precio_venta,zona,observacion
+prenda,Camisa Oversize Peruana,Negro,S,,ninguno,1,37000,75000,A,
+prenda,Camisa Oversize Peruana,Negro,M,,ninguno,5,37000,75000,A,
+prenda,Camisa Oversize Peruana,Negro,L,,ninguno,2,37000,75000,A,
+prenda,Camisa Oversize Peruana,Blanco,M,Pulp Fiction,completo_dtg,3,49000,90000,A,ejemplo estampada
+prenda,Hoodie Acid Wash,Gris,L,,ninguno,0,120000,190000,B,agotado
+fragancia,Loción Amaderada 100ml,,Única,,,4,35000,70000,D,ejemplo accesorio
+accesorio,Candela Aromática 200g,Negro,Única,,,6,15000,35000,D,ejemplo
+accesorio,Llavero Metálico ORVANN,,Única,,,12,3000,10000,E,
+accesorio,Rascador Vinilos,,Única,,,3,8000,20000,E,
+accesorio,Vaporizador Portátil,,Única,,,5,45000,90000,E,

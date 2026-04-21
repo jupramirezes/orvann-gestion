@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# ORVANN Gestión
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema operativo integral para **ORVANN**, tienda de streetwear en Medellín. Reemplaza un Google Sheet multi-hoja por una app web (admin) + PWA móvil (POS) + bot Telegram (F3), todo sobre Supabase.
 
-Currently, two official plugins are available:
+Arquitectura pensada para replicarse a otros negocios retail similares.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- **Frontend**: React 19 + TypeScript estricto + Tailwind CSS v4 + Vite.
+- **Backend / DB / Auth / Storage**: Supabase (proyecto `nldctykjvyqsggwvweeh`).
+- **Deploy**: Vercel.
+- **PWA**: manifest + service worker, instalable en Android/iOS.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Superficies
 
-## Expanding the ESLint configuration
+| Superficie   | Para quién | Qué ve |
+|--------------|------------|--------|
+| Admin web    | Socios / administradores | Catálogo, pedidos, gastos, clientes, dashboard, reportes, costos. |
+| POS móvil    | Vendedor en tienda | Grilla de productos, cobro con pagos mixtos, devoluciones. Sin costos ni márgenes. |
+| Bot Telegram | Socios (F3) | Consultas rápidas y registro por chat con Gemini 2.5 Flash. |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Documentación
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Plan completo en [`docs/plan/`](docs/plan/):
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- [`01-modelo-datos.md`](docs/plan/01-modelo-datos.md) — schema consolidado (fuente de verdad).
+- [`02-plan-fases.md`](docs/plan/02-plan-fases.md) — fases F1 → F5 y criterios de aceptación.
+- [`03-fase1-tareas.md`](docs/plan/03-fase1-tareas.md) — tareas operativas de Fase 1 + protocolo.
+- [`seed-disenos.sql`](docs/plan/seed-disenos.sql) — 39 referencias culturales (diseños).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Referencias en [`docs/referencia/`](docs/referencia/):
+- Google Sheet original (referencia histórica, NO se migra).
+- `inventario-fisico-template.csv` — contrato de columnas del importador de variantes.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Estilo visual
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+100% fiel al CRM `durata_crm` (repo en `C:\Personal\Negocios\DURATA\durata_crm`): paleta oklch cool-steel, tema claro, `lucide-react`, tokens Tailwind, layout con sidebar. Los componentes base se portan desde ese repo.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Estado
+
+En construcción. Fase 1 en curso. El branch `v2` reemplaza el enfoque v1 descartado que vive en `dev`.
