@@ -14,7 +14,12 @@
       "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__list_projects",
       "Bash(git ls-tree *)",
       "Bash(git checkout *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__list_tables",
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__apply_migration",
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__execute_sql",
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__get_advisors"
     ]
   }
 }
