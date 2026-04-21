@@ -8,6 +8,10 @@ import AdminLayout from './layouts/AdminLayout'
 import POSLayout from './layouts/POSLayout'
 import Dashboard from './pages/admin/Dashboard'
 import Placeholder from './pages/admin/Placeholder'
+import Productos from './pages/admin/Productos'
+import ProductoDetalle from './pages/admin/ProductoDetalle'
+import Disenos from './pages/admin/Disenos'
+import Variantes from './pages/admin/Variantes'
 import POSHome from './pages/pos/POSHome'
 
 export default function App() {
@@ -57,9 +61,10 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="ventas" element={<Placeholder title="Ventas" subtitle="Historial y detalle" tarea="Tarea 1.5 (POS) + 1.7 (detalle)" />} />
           <Route path="pedidos" element={<Placeholder title="Pedidos a proveedor" subtitle="Crear, recibir, marcar pago" tarea="Tarea 1.4" />} />
-          <Route path="productos" element={<Placeholder title="Productos" subtitle="Catálogo maestro" tarea="Tarea 1.3" />} />
-          <Route path="variantes" element={<Placeholder title="Variantes" subtitle="SKUs vendibles con stock" tarea="Tarea 1.3" />} />
-          <Route path="disenos" element={<Placeholder title="Diseños" subtitle="Referencias culturales" tarea="Tarea 1.3" />} />
+          <Route path="productos" element={<Productos />} />
+          <Route path="productos/:id" element={<ProductoDetalle />} />
+          <Route path="variantes" element={<Variantes />} />
+          <Route path="disenos" element={<Disenos />} />
           <Route path="gastos" element={<Placeholder title="Gastos" subtitle="Distribución entre socios" tarea="Tarea 1.6" />} />
           <Route path="consignaciones" element={<Placeholder title="Consignaciones" subtitle="Caja → cuenta bancaria" tarea="Fase 2" />} />
           <Route path="clientes" element={<Placeholder title="Clientes" subtitle="Historial de compras" tarea="Tarea 1.7" />} />
