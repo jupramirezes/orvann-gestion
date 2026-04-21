@@ -19,7 +19,12 @@
       "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__list_tables",
       "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__apply_migration",
       "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__execute_sql",
-      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__get_advisors"
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__get_advisors",
+      "Bash(cp /c/Personal/Negocios/DURATA/durata_crm/src/index.css /tmp/durata-index.css)",
+      "Read(//tmp/**)",
+      "mcp__4837ffe1-6581-409e-b61b-254b31bc076c__generate_typescript_types",
+      "Bash(kill %1)",
+      "Bash(pkill -f \"vite\")"
     ]
   }
 }
