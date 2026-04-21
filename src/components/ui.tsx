@@ -221,7 +221,7 @@ export function THead({ children }: { children: ReactNode }) {
 }
 
 export function TH({ children, className, align = 'left' }: {
-  children: ReactNode
+  children?: ReactNode
   className?: string
   align?: 'left' | 'right' | 'center'
 }) {
@@ -261,7 +261,7 @@ export function TR({ children, onClick, className }: {
 }
 
 export function TD({ children, className, align = 'left', title }: {
-  children: ReactNode
+  children?: ReactNode
   className?: string
   align?: 'left' | 'right' | 'center'
   title?: string

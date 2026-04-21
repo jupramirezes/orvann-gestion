@@ -123,11 +123,16 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 
 | # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
 |---|------|------|-----------------|-------|--------------------|--------|
-| P-01 | manual | Crear pedido con 5 items (descripción libre) | Proveedor existe | `/admin/pedidos/nuevo`, agregar 5 items sin variante | Pedido creado, estado `pendiente` | pendiente |
-| P-02 | manual | Marcar pago | P-01 OK | Click "Marcar pagado" | `estado_pago='pagado'`, `fecha_pago=hoy` | pendiente |
-| P-03 | manual | Recepción guiada | P-01 OK | Setear `fecha_recepcion`, mapear 3 items a variantes existentes y 2 crear al vuelo | Modal abre por item sin variante, al confirmar se genera `movimiento_inventario` tipo `entrada_pedido` | pendiente |
-| P-04 | integration | `fn_post_recepcion_pedido` trigger | P-03 OK | `select * from movimientos_inventario where referencia_id=<pedido_id>` | 5 filas tipo `entrada_pedido` | pendiente |
-| P-05 | integration | Stock suma tras recepción | P-04 OK | `select stock_cache from variantes where id in (...)` | Cada una con su cantidad del pedido | pendiente |
+| P-01 | manual | Crear pedido con 5 items (descripción libre) | Proveedor existe | `/admin/pedidos/nuevo`, agregar 5 items sin variante | Pedido creado, estado `pendiente`, redirige a detalle | pendiente |
+| P-02 | manual | Marcar pago | P-01 OK | Click "Marcar pagado" → modal con fecha | `estado_pago='pagado'`, `fecha_pago` guardada, badge verde | pendiente |
+| P-03 | manual | Mapear item antes de recepción | P-01 OK | Click ícono ↻ en fila sin mapear, seleccionar variante del buscador | `pedidos_proveedor_items.variante_id` seteado | pendiente |
+| P-04 | manual | Recepción guiada (parcial mapeada) | P-01 + 2 items mapeados | Click "Registrar recepción" → modal fecha → confirmar | Warning "N sin mapear no afectan stock", confirmación OK | pendiente |
+| P-05 | integration | `fn_post_recepcion_pedido` trigger | P-04 OK | `select * from movimientos_inventario where referencia_id=<pedido_id>` | N filas `entrada_pedido` sólo para items con variante_id | pendiente |
+| P-06 | integration | Stock suma tras recepción | P-05 OK | `select stock_cache from variantes where id in (items mapeados)` | +unidades del pedido en cada una | pendiente |
+| P-07 | manual | Filtro por proveedor | Varios pedidos de distintos proveedores | `/admin/pedidos` con filtro | Solo los del proveedor | pendiente |
+| P-08 | manual | Filtro por mes | Pedidos en distintos meses | Selector month-input | Solo los del mes | pendiente |
+| P-09 | manual | Total recalculado | Pedido con items editados | Click "Recalcular total" si hay diff | `pedidos.total` = suma de items | pendiente |
+| P-10 | manual | Recepción bloqueada 2x | P-04 ya OK | Intentar recepción de nuevo | Botón "Registrar recepción" oculto porque ya tiene fecha | pendiente |
 
 ### Tarea 1.5 — POS móvil con pagos mixtos y devoluciones
 

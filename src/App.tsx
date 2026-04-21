@@ -12,6 +12,9 @@ import Productos from './pages/admin/Productos'
 import ProductoDetalle from './pages/admin/ProductoDetalle'
 import Disenos from './pages/admin/Disenos'
 import Variantes from './pages/admin/Variantes'
+import Pedidos from './pages/admin/Pedidos'
+import PedidoNuevo from './pages/admin/PedidoNuevo'
+import PedidoDetalle from './pages/admin/PedidoDetalle'
 import POSHome from './pages/pos/POSHome'
 
 export default function App() {
@@ -60,7 +63,9 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout user={user} />}>
           <Route index element={<Dashboard />} />
           <Route path="ventas" element={<Placeholder title="Ventas" subtitle="Historial y detalle" tarea="Tarea 1.5 (POS) + 1.7 (detalle)" />} />
-          <Route path="pedidos" element={<Placeholder title="Pedidos a proveedor" subtitle="Crear, recibir, marcar pago" tarea="Tarea 1.4" />} />
+          <Route path="pedidos" element={<Pedidos />} />
+          <Route path="pedidos/nuevo" element={<PedidoNuevo />} />
+          <Route path="pedidos/:id" element={<PedidoDetalle />} />
           <Route path="productos" element={<Productos />} />
           <Route path="productos/:id" element={<ProductoDetalle />} />
           <Route path="variantes" element={<Variantes />} />
