@@ -6,6 +6,57 @@ Estados posibles: `pendiente` (no ejecutado aún) · `ok` · `fail` (con nota de
 
 ---
 
+## Reglas del sistema de estampados (para validación)
+
+El `costo_adicional` de una variante se calcula sumando conceptos de
+`parametros_costo` según **tipo de producto** y **tipo de estampado**.
+
+**Conceptos base** (siempre aplican si `aplicable_a` incluye el tipo):
+
+| Concepto           | Monto  | Aplica a                          | Notas |
+|--------------------|--------|-----------------------------------|-------|
+| `etiqueta_espalda` | 600    | prenda                            | Etiqueta de tela en espalda |
+| `marquilla_lavado` | 600    | prenda                            | Marquilla interna de lavado |
+| `bolsa`            | 1000   | prenda / fragancia / accesorio    | Empaque al entregar |
+
+**Conceptos por estampado** (se suman sobre los base):
+
+| `tipo_estampado`          | Conceptos sumados                              | Extra |
+|---------------------------|------------------------------------------------|-------|
+| `ninguno`                 | —                                              | 0     |
+| `punto_corazon_estampado` | `punto_corazon_estampado`                      | 2.000 |
+| `punto_corazon_bordado`   | `punto_corazon_bordado`                        | 7.000 |
+| `completo_dtg`            | `estampado_dtg_grande`                         | 12.000 |
+| `doble_punto_y_completo`  | `estampado_dtg_grande` + `punto_corazon_estampado` | 14.000 |
+
+**Ejemplos de `costo_adicional` (sobre costo_base)**:
+
+| Tipo       | Estampado              | Desglose                          | Total |
+|------------|------------------------|-----------------------------------|-------|
+| prenda     | ninguno                | 600 + 600 + 1000                  | 2.200  |
+| prenda     | completo_dtg           | 600 + 600 + 1000 + 12000          | 14.200 |
+| prenda     | punto_corazon_estampado| 600 + 600 + 1000 + 2000           | 4.200  |
+| prenda     | punto_corazon_bordado  | 600 + 600 + 1000 + 7000           | 9.200  |
+| prenda     | doble_punto_y_completo | 600 + 600 + 1000 + 12000 + 2000   | 16.200 |
+| fragancia  | ninguno                | 1000 (solo bolsa)                 | 1.000  |
+| accesorio  | ninguno                | 1000 (solo bolsa)                 | 1.000  |
+| otro       | ninguno                | (no hay bolsa aplicable)          | 0      |
+
+**Cosas a validar contra el Sheet viejo** (si el costo está mal, me avisás y ajustamos):
+- Que `punto_corazon_bordado` = 7.000 y `_estampado` = 2.000 (diferencia real entre bordar y estampar el logo de la espalda).
+- Que `completo_dtg` = 12.000 sea el costo de la estampa grande (pecho, espalda o ambos).
+- Que `doble_punto_y_completo` sea DTG grande + punto corazón estampado (14k) y **no** DTG + punto bordado (que sería 19k).
+- Que `etiqueta_espalda` + `marquilla_lavado` sumen 1.200 siempre en prendas.
+- Que la `bolsa` aplique a prendas, fragancias y accesorios (no a `otro`).
+
+Si alguno de estos valores o reglas está mal, se corrige en el seed
+(`supabase/seed.sql`) o en `src/lib/catalogo.ts`:
+- **Cambio de precio**: `update parametros_costo set costo_unitario = N where concepto = 'X'`. Las variantes existentes **no** se recalculan (fotografía del costo al momento).
+- **Nuevo concepto**: insert en `parametros_costo` + ajustar `CONCEPTO_CATEGORIA` y (si va por estampado) `ESTAMPADO_MAP` en `catalogo.ts`.
+- **Cambio de qué estampado incluye qué concepto**: editar `ESTAMPADO_MAP` en `catalogo.ts`.
+
+---
+
 ## Matriz por tarea
 
 Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (SQL sobre Supabase) · `unit` (función pura en TS).
@@ -21,6 +72,8 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | S-05 | integration | `fn_generar_sku` produce SKU válido | Productos y diseños cargados | `select fn_generar_sku((select id from productos limit 1), 'Negro', 'L', null)` | string no vacío, formato `XXX-NEG-L` | pendiente |
 | S-06 | integration | `fn_calcular_distribucion_gasto` divide equitativa correctamente | 3 socios + 1 categoría | `insert into gastos (..., distribucion='equitativa', monto_total=90000)` | monto_kathe=30000, monto_andres=30000, monto_jp=30000 (o 30001 con el resto) | pendiente |
 | S-07 | integration | Advisor sin errores | — | `get_advisors type=security` | 0 errors, sólo 24 warnings de RLS abierta (F2) | ok |
+| S-08 | integration | GRANTs restauran acceso | migración 009 aplicada | `select count(*) from disenos` como authenticated | no `permission denied` | ok |
+| S-09 | integration | Trigger auto-crea profile | migración 010 aplicada | Login de usuario nuevo → `select * from profiles where id=auth.uid()` | 1 fila con `rol='admin'` | ok (backfill JP verificado) |
 
 ### Tarea 1.2 — Frontend base
 
@@ -28,18 +81,18 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 |---|------|------|-----------------|-------|--------------------|--------|
 | F-01 | manual | Build production | `.env.local` con keys | `npm run build` | Build exitoso, <500KB JS | ok |
 | F-02 | manual | Lint sin errores | — | `npm run lint` | 0 errors | ok |
-| F-03 | manual | Login redirige a /admin | Usuario creado en Supabase Auth | Login con credenciales válidas | Redirige a `/admin`, muestra Dashboard | pendiente |
+| F-03 | manual | Login redirige a /admin | Usuario creado en Supabase Auth | Login con credenciales válidas | Redirige a `/admin`, muestra Dashboard | ok (JP confirmó) |
 | F-04 | manual | Login rechaza credenciales malas | — | Submit con password incorrecto | Error "Correo o contraseña incorrectos" | pendiente |
 | F-05 | manual | Logout desde sidebar | Logueado | Click logout | Vuelve a pantalla de login | pendiente |
 | F-06 | manual | Sidebar navegación | Logueado | Click cada ítem del sidebar | Navega + highlight activo correcto | pendiente |
 | F-07 | manual | Responsive mobile sidebar | Viewport < 768px | Abrir menú hamburguesa | Sidebar slide-in, click ítem cierra el sheet | pendiente |
-| F-08 | manual | Look & feel DURATA | Logueado | Comparar con `durata_crm` (mismo navegador) | Indistinguibles al ojo (tipografía, paleta, spacing) | pendiente |
+| F-08 | manual | Look & feel DURATA | Logueado | Comparar con `durata_crm` (mismo navegador) | Indistinguibles al ojo (tipografía, paleta, spacing) | ok (a primera vista, JP confirmó) |
 
 ### Tarea 1.3 — Catálogo
 
 | # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
 |---|------|------|-----------------|-------|--------------------|--------|
-| C-01 | manual | Listar diseños | Seed corrido | Ir a `/admin/disenos` | 39 filas visibles, buscador filtra, filtro por categoría funciona | pendiente |
+| C-01 | manual | Listar diseños | Seed corrido + grants aplicados | Ir a `/admin/disenos` | 39 filas visibles, buscador filtra, filtro por categoría funciona | pendiente (re-test tras fix grants) — antes daba `permission denied for table disenos` |
 | C-02 | manual | Crear diseño | — | Click "Nuevo diseño" + llenar form + guardar | Aparece en listado inmediatamente | pendiente |
 | C-03 | manual | Editar diseño | C-02 OK | Click diseño recién creado, editar nombre | Nombre actualizado en listado | pendiente |
 | C-04 | manual | Desactivar diseño | C-02 OK | Toggle "activo=false" | Desaparece del listado (filtro default oculta inactivos) | pendiente |
@@ -59,6 +112,10 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | C-18 | manual | CSV: fila inválida | CSV con fila sin precio_venta | Upload | Reporte muestra fila problemática, resto se crea | pendiente |
 | C-19 | manual | CSV: producto nuevo find-or-create | CSV con producto_base no existente | Upload | Crea producto + variante, movimiento `entrada_pedido` con cantidad inicial | pendiente |
 | C-20 | integration | Stock cache tras import CSV | C-19 OK | `select stock_cache from variantes where sku=...` | = cantidad inicial del CSV | pendiente |
+| C-21 | manual | XLSX: importar desde Excel | Inventario real en .xlsx | Upload xlsx en `/admin/variantes` | Parser lee primera hoja, preview muestra headers normalizados, importa N filas | pendiente (JP hará inventario en Excel) |
+| C-22 | manual | Headers con espacios/acentos | XLSX con "Precio Venta" o "Diseño" en headers | Upload | Preview muestra "precio_venta ← de 'Precio Venta'" y importa sin fallar | pendiente |
+| C-23 | manual | Alias de headers | CSV con `precio` en vez de `precio_venta` | Upload | Se mapea automáticamente vía HEADER_ALIASES | pendiente |
+| C-24 | manual | Diseño no existente | XLSX con `diseno="No Existe"` | Upload | Fila falla con mensaje claro "Diseño X no existe, creálo primero" | pendiente |
 
 ### Tarea 1.4 — Pedidos a proveedor
 

@@ -27,7 +27,8 @@
       "Bash(pkill -f \"vite\")",
       "Bash(git merge *)",
       "Bash(git stash *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(git commit --amend -m ' *)"
     ]
   }
 }
