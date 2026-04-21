@@ -28,3 +28,6 @@ dist-ssr
 # Office / Excel lock files
 ~$*
 .~lock.*
+
+# Import intermedios (scripts generan SQL aquí antes de aplicar por MCP)
+tmp-import/

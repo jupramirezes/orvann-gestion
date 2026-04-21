@@ -110,12 +110,14 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | C-16 | manual | Subir imagen a variante | Variante existe | Click "Subir imagen" en detalle | Imagen comprimida <1MB, se guarda en Storage, URL en `variantes.imagen_url` | bloqueado (Tarea 1.3b: upload imagen posponer hasta tener variantes reales) |
 | C-17 | manual | CSV: importar 20 variantes válidas | Template CSV | Upload CSV en `/admin/variantes` | Reporte "20 OK, 0 fallidas", variantes creadas | pendiente |
 | C-18 | manual | CSV: fila inválida | CSV con fila sin precio_venta | Upload | Reporte muestra fila problemática, resto se crea | pendiente |
-| C-19 | manual | CSV: producto nuevo find-or-create | CSV con producto_base no existente | Upload | Crea producto + variante, movimiento `entrada_pedido` con cantidad inicial | pendiente |
-| C-20 | integration | Stock cache tras import CSV | C-19 OK | `select stock_cache from variantes where sku=...` | = cantidad inicial del CSV | pendiente |
-| C-21 | manual | XLSX: importar desde Excel | Inventario real en .xlsx | Upload xlsx en `/admin/variantes` | Parser lee primera hoja, preview muestra headers normalizados, importa N filas | pendiente (JP hará inventario en Excel) |
-| C-22 | manual | Headers con espacios/acentos | XLSX con "Precio Venta" o "Diseño" en headers | Upload | Preview muestra "precio_venta ← de 'Precio Venta'" y importa sin fallar | pendiente |
-| C-23 | manual | Alias de headers | CSV con `precio` en vez de `precio_venta` | Upload | Se mapea automáticamente vía HEADER_ALIASES | pendiente |
-| C-24 | manual | Diseño no existente | XLSX con `diseno="No Existe"` | Upload | Fila falla con mensaje claro "Diseño X no existe, creálo primero" | pendiente |
+| C-19 | manual | CSV/XLSX: producto nuevo find-or-create | archivo con producto_base no existente | Upload | Crea producto + variante, movimiento `entrada_pedido` con cantidad inicial | ok (one-shot: 12 productos creados desde xlsx real de JP) |
+| C-20 | integration | Stock cache tras import | C-19 OK | `select stock_cache from variantes` | = cantidad inicial | ok (55 unidades totales en 41 variantes, stock_cache mantenido por trigger) |
+| C-21 | manual | XLSX real de JP importado | `docs/referencia/inventario-fisico-template.xlsx` | Script `scripts/preparar-import-jp.mjs` + `generar-sql-import.mjs` + MCP | 41 variantes, 55 unidades | ok (parcial: import one-shot hecho; el importer UI requiere ajustes) |
+| C-22 | manual | Headers con espacios/acentos | XLSX con "Precio Venta" o "Diseño" | Upload desde UI | Preview muestra `"precio_venta ← de 'Precio Venta'"` y importa | pendiente (normalización ya en código, falta end-to-end UI) |
+| C-23 | manual | Alias de headers | CSV con `precio` en vez de `precio_venta` | Upload UI | Mapea por `HEADER_ALIASES` | pendiente |
+| C-24 | manual | Diseño no existente | archivo con `diseno="No Existe"` | Upload | Fila falla con mensaje "Diseño X no existe" | pendiente |
+| C-25 | integration | Inventario real 30% cargado | — | `select count(*) from productos; variantes; movimientos_inventario` | 12 productos, 41 variantes, 41 movimientos, 55 unidades | ok |
+| C-26 | known-issue | Importer UI vs. formato JP | Excel real usa 3 cols SI/NO para estampado + header en row 2 | — | Sub-tarea **1.3c**: extender importer UI para detectar header row auto y mapear SI/NO→enum. Por ahora se usa script one-shot. | bloqueado (diferido a 1.3c) |
 
 ### Tarea 1.4 — Pedidos a proveedor
 
