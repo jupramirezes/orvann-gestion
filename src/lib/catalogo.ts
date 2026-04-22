@@ -20,14 +20,20 @@ const CONCEPTO_CATEGORIA: Record<string, 'base' | 'estampado'> = {
 
 /**
  * Mapeo de `tipo_estampado` → conceptos de `parametros_costo` que aplican.
- * `doble_punto_y_completo` combina DTG + punto_corazón estampado.
+ *
+ * Reglas de combinación:
+ *   - `doble_punto_y_completo`: DTG grande (12k) + punto corazón estampado (2k).
+ *   - `doble_bordado_y_completo`: DTG grande (12k) + punto corazón bordado (7k).
+ *   - `triple_completo`: DTG (12k) + estampado (2k) + bordado (7k) — raro pero posible.
  */
 const ESTAMPADO_MAP: Record<TipoEstampado, string[]> = {
   ninguno: [],
-  punto_corazon_estampado: ['punto_corazon_estampado'],
-  punto_corazon_bordado:   ['punto_corazon_bordado'],
-  completo_dtg:            ['estampado_dtg_grande'],
-  doble_punto_y_completo:  ['estampado_dtg_grande', 'punto_corazon_estampado'],
+  punto_corazon_estampado:  ['punto_corazon_estampado'],
+  punto_corazon_bordado:    ['punto_corazon_bordado'],
+  completo_dtg:             ['estampado_dtg_grande'],
+  doble_punto_y_completo:   ['estampado_dtg_grande', 'punto_corazon_estampado'],
+  doble_bordado_y_completo: ['estampado_dtg_grande', 'punto_corazon_bordado'],
+  triple_completo:          ['estampado_dtg_grande', 'punto_corazon_estampado', 'punto_corazon_bordado'],
 }
 
 export type BreakdownItem = {
@@ -129,7 +135,9 @@ export const ESTAMPADO_LABELS: Record<TipoEstampado, string> = {
   punto_corazon_estampado: 'Punto corazón estampado',
   punto_corazon_bordado: 'Punto corazón bordado',
   completo_dtg: 'DTG completo',
-  doble_punto_y_completo: 'DTG + punto corazón',
+  doble_punto_y_completo: 'DTG + punto estampado',
+  doble_bordado_y_completo: 'DTG + punto bordado',
+  triple_completo: 'DTG + estampado + bordado',
 }
 
 /**

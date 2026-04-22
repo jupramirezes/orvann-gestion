@@ -117,7 +117,7 @@ export default function Variantes() {
               <TH align="right">Costo</TH>
               <TH align="right">Precio</TH>
               <TH align="right">Margen</TH>
-              <TH align="right">Stock</TH>
+              <TH align="center">Stock</TH>
               <TH>Estado</TH>
             </TR>
           </THead>
@@ -152,7 +152,7 @@ export default function Variantes() {
                 <TD align="right" className="text-xs">
                   {Number(v.margen_porcentaje ?? 0).toLocaleString('es-CO', { style: 'percent', maximumFractionDigits: 1 })}
                 </TD>
-                <TD align="right" className={`tabular-nums font-medium ${(v.stock_cache ?? 0) < 3 ? 'text-[var(--color-accent-red)]' : ''}`}>
+                <TD align="center" className={`tabular-nums font-medium ${(v.stock_cache ?? 0) < 3 ? 'text-[var(--color-accent-red)]' : ''}`}>
                   {v.stock_cache ?? 0}
                 </TD>
                 <TD><StatusBadge estado={v.activo ? 'activo' : 'inactivo'} /></TD>

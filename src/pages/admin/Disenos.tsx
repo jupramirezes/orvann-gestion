@@ -121,26 +121,26 @@ export default function Disenos() {
         <Table>
           <THead>
             <TR>
-              <TH>Nombre</TH>
-              <TH>Categoría</TH>
-              <TH>Año</TH>
-              <TH>Descripción</TH>
-              <TH>Estado</TH>
-              <TH align="right">Acciones</TH>
+              <TH align="center">Nombre</TH>
+              <TH align="center">Categoría</TH>
+              <TH align="center">Año</TH>
+              <TH align="center">Descripción</TH>
+              <TH align="center">Estado</TH>
+              <TH align="center">Acciones</TH>
             </TR>
           </THead>
           <TBody>
             {rows.map(d => (
               <TR key={d.id}>
-                <TD className="font-medium">{d.nombre}</TD>
-                <TD>{d.categoria ? CATEGORIA_DISENO_LABELS[d.categoria] : '—'}</TD>
-                <TD align="right">{d.referencia_ano ?? '—'}</TD>
-                <TD className="text-[var(--color-text-muted)] text-xs max-w-[260px] truncate" title={d.descripcion ?? ''}>
+                <TD align="center" className="font-medium">{d.nombre}</TD>
+                <TD align="center">{d.categoria ? CATEGORIA_DISENO_LABELS[d.categoria] : '—'}</TD>
+                <TD align="center">{d.referencia_ano ?? '—'}</TD>
+                <TD align="center" className="text-[var(--color-text-muted)] text-xs max-w-[260px] truncate" title={d.descripcion ?? ''}>
                   {d.descripcion ?? '—'}
                 </TD>
-                <TD><StatusBadge estado={d.activo ? 'activo' : 'inactivo'} /></TD>
-                <TD align="right">
-                  <div className="flex gap-1 justify-end">
+                <TD align="center"><StatusBadge estado={d.activo ? 'activo' : 'inactivo'} /></TD>
+                <TD align="center">
+                  <div className="flex gap-1 justify-center">
                     <Button
                       size="sm"
                       variant="ghost"

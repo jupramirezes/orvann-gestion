@@ -173,7 +173,7 @@ export default function ProductoDetalle() {
               <TH>Estampado</TH>
               <TH align="right">Costo</TH>
               <TH align="right">Precio</TH>
-              <TH align="right">Stock</TH>
+              <TH align="center">Stock</TH>
               <TH>Estado</TH>
             </TR>
           </THead>
@@ -189,7 +189,7 @@ export default function ProductoDetalle() {
                 </TD>
                 <TD align="right" className="text-xs">{formatCOP(Number(v.costo_total ?? 0))}</TD>
                 <TD align="right" className="font-medium">{formatCOP(Number(v.precio_venta))}</TD>
-                <TD align="right" className={`tabular-nums ${(v.stock_cache ?? 0) < 3 ? 'text-[var(--color-accent-red)] font-semibold' : ''}`}>
+                <TD align="center" className={`tabular-nums ${(v.stock_cache ?? 0) < 3 ? 'text-[var(--color-accent-red)] font-semibold' : ''}`}>
                   {v.stock_cache ?? 0}
                 </TD>
                 <TD><StatusBadge estado={v.activo ? 'activo' : 'inactivo'} /></TD>

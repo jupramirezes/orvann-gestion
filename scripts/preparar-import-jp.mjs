@@ -83,11 +83,21 @@ function parseYesNo(raw) {
 }
 
 function estampadoFromColumns(punto, bordado, completo) {
-  // Prioridad: doble (completo+punto) > completo > bordado > punto > ninguno
-  if (completo && punto) return 'doble_punto_y_completo'
-  if (completo)          return 'completo_dtg'
-  if (bordado)           return 'punto_corazon_bordado'
-  if (punto)             return 'punto_corazon_estampado'
+  // Matriz completa de combinaciones:
+  //   - los 3 SI          → triple_completo (raro)
+  //   - completo+punto    → doble_punto_y_completo
+  //   - completo+bordado  → doble_bordado_y_completo
+  //   - punto+bordado (sin completo) → se toma bordado (más costoso, más "terminado")
+  //   - solo completo     → completo_dtg
+  //   - solo bordado      → punto_corazon_bordado
+  //   - solo punto        → punto_corazon_estampado
+  //   - todos NO          → ninguno
+  if (completo && punto && bordado) return 'triple_completo'
+  if (completo && punto)            return 'doble_punto_y_completo'
+  if (completo && bordado)          return 'doble_bordado_y_completo'
+  if (completo)                     return 'completo_dtg'
+  if (bordado)                      return 'punto_corazon_bordado'
+  if (punto)                        return 'punto_corazon_estampado'
   return 'ninguno'
 }
 

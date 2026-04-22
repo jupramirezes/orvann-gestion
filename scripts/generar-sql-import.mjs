@@ -25,10 +25,12 @@ const PARAMS = {
 
 const ESTAMPADO_MAP = {
   ninguno: [],
-  punto_corazon_estampado: ['punto_corazon_estampado'],
-  punto_corazon_bordado:   ['punto_corazon_bordado'],
-  completo_dtg:            ['estampado_dtg_grande'],
-  doble_punto_y_completo:  ['estampado_dtg_grande', 'punto_corazon_estampado'],
+  punto_corazon_estampado:  ['punto_corazon_estampado'],
+  punto_corazon_bordado:    ['punto_corazon_bordado'],
+  completo_dtg:             ['estampado_dtg_grande'],
+  doble_punto_y_completo:   ['estampado_dtg_grande', 'punto_corazon_estampado'],
+  doble_bordado_y_completo: ['estampado_dtg_grande', 'punto_corazon_bordado'],
+  triple_completo:          ['estampado_dtg_grande', 'punto_corazon_estampado', 'punto_corazon_bordado'],
 }
 
 function calcularCostoAdicional(tipo, estampado) {

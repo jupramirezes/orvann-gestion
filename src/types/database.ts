@@ -1267,6 +1267,8 @@ export type Database = {
         | "punto_corazon_bordado"
         | "completo_dtg"
         | "doble_punto_y_completo"
+        | "doble_bordado_y_completo"
+        | "triple_completo"
       tipo_movimiento:
         | "entrada_pedido"
         | "venta"
@@ -1451,6 +1453,8 @@ export const Constants = {
         "punto_corazon_bordado",
         "completo_dtg",
         "doble_punto_y_completo",
+        "doble_bordado_y_completo",
+        "triple_completo",
       ],
       tipo_movimiento: [
         "entrada_pedido",

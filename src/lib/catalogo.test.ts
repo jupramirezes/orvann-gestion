@@ -33,9 +33,19 @@ describe('calcularCostoAdicional', () => {
     expect(r.total).toBe(4200)
   })
 
-  it('prenda doble (DTG + punto): 12000 + 2000 + 600 + 600 + 1000 = 16200', () => {
+  it('prenda doble punto+completo: 12000 + 2000 + 600 + 600 + 1000 = 16200', () => {
     const r = calcularCostoAdicional(PARAMS, 'prenda', 'doble_punto_y_completo')
     expect(r.total).toBe(16200)
+  })
+
+  it('prenda doble bordado+completo: 12000 + 7000 + 600 + 600 + 1000 = 21200', () => {
+    const r = calcularCostoAdicional(PARAMS, 'prenda', 'doble_bordado_y_completo')
+    expect(r.total).toBe(21200)
+  })
+
+  it('prenda triple (DTG + estampado + bordado): 12000 + 2000 + 7000 + 600 + 600 + 1000 = 23200', () => {
+    const r = calcularCostoAdicional(PARAMS, 'prenda', 'triple_completo')
+    expect(r.total).toBe(23200)
   })
 
   it('accesorio sin estampado: solo bolsa = 1000', () => {

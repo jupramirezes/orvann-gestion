@@ -74,6 +74,7 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | S-07 | integration | Advisor sin errores | — | `get_advisors type=security` | 0 errors, sólo 24 warnings de RLS abierta (F2) | ok |
 | S-08 | integration | GRANTs restauran acceso | migración 009 aplicada | `select count(*) from disenos` como authenticated | no `permission denied` | ok |
 | S-09 | integration | Trigger auto-crea profile | migración 010 aplicada | Login de usuario nuevo → `select * from profiles where id=auth.uid()` | 1 fila con `rol='admin'` | ok (backfill JP verificado) |
+| S-10 | integration | Enum estampado extendido (edge cases) | migración 011 aplicada | `select unnest(enum_range(null::tipo_estampado))` | 7 valores incluyendo `doble_bordado_y_completo` y `triple_completo` | ok |
 
 ### Tarea 1.2 — Frontend base
 

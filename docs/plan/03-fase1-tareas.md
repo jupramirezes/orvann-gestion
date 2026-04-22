@@ -212,6 +212,60 @@ Rutas: `/admin/clientes`, `/admin/clientes/:id`.
 
 ---
 
+## Operación: flujos de trabajo frecuentes
+
+### Cómo se calcula el costo de una variante
+
+`costo_total = costo_base + costo_adicional`:
+- **`costo_base`**: lo que cuesta la prenda pelada del proveedor (entrada manual).
+- **`costo_adicional`**: se **fotografía** al crear la variante sumando conceptos aplicables de `parametros_costo` según (`tipo_producto`, `tipo_estampado`):
+
+**Base (siempre que `aplicable_a` incluya el tipo)**:
+| Concepto | Monto | Aplica a |
+|----------|-------|----------|
+| `etiqueta_espalda` | 600 | prenda |
+| `marquilla_lavado` | 600 | prenda |
+| `bolsa` | 1000 | prenda/fragancia/accesorio |
+
+**Por estampado** (suma sobre base):
+| `tipo_estampado` | Conceptos extra | Suma extra |
+|------------------|-----------------|-----------:|
+| `ninguno` | — | 0 |
+| `punto_corazon_estampado` | estampado | 2.000 |
+| `punto_corazon_bordado` | bordado | 7.000 |
+| `completo_dtg` | DTG | 12.000 |
+| `doble_punto_y_completo` | DTG + estampado | 14.000 |
+| `doble_bordado_y_completo` | DTG + bordado | 19.000 |
+| `triple_completo` | DTG + estampado + bordado | 21.000 |
+
+Resultado total para prenda con ese estampado = base (2.200) + extra. Ejemplo: prenda `doble_punto_y_completo` → 2.200 + 14.000 = **16.200**. Verificable en `src/lib/catalogo.test.ts`.
+
+### Cómo se agrega inventario nuevo (compras al proveedor)
+
+1. **Crear pedido**: `/admin/pedidos/nuevo` — elegís proveedor, fecha, y agregás items. Cada item puede ser:
+   - **Variante existente** (dropdown con las 41 que ya tenés). Usado para re-compras.
+   - **Descripción libre** ("10 camisas Boxy M negras nuevas"). Se usa cuando llegan productos que aún no existen como variante.
+2. **Marcar pagado** (opcional): modal con fecha → `estado_pago='pagado'`.
+3. **Mapear items libres antes de recepción**:
+   - Si el item era descripción libre y la variante **ya existe**: click ↻ en la fila → buscador → seleccionar.
+   - Si es una variante **nueva**: crearla primero en `/admin/productos/:id` → "Nueva variante" (con costo + precio). Después mapear el item del pedido a esa variante recién creada.
+4. **Registrar recepción**: botón "Registrar recepción" → modal con fecha → confirmar. Esto dispara el trigger `fn_post_recepcion_pedido` que inserta un `movimiento_inventario` tipo `entrada_pedido` por cada item con `variante_id`. El `stock_cache` de cada variante se incrementa automáticamente.
+5. **Items sin mapear** quedan en el pedido pero **no afectan stock** (warning amarillo en el detalle). Se pueden mapear después editando el item — pero el stock no se re-dispara (el trigger solo corre al pasar `fecha_recepcion` de null a date). Para esos casos: crear un `movimiento_inventario` `ajuste_positivo` manual, o cancelar y re-recibir.
+
+### Re-importar inventario desde xlsx (actualización de JP)
+
+Cuando JP actualice el Excel con más filas del inventario físico:
+
+1. **Guardar el xlsx** en `docs/referencia/inventario-fisico-template.xlsx` (reemplaza el existente).
+2. **Wipe previo** (opcional, solo si querés reemplazar el dataset): correr `scripts/wipe-import.sql` por MCP. Borra solo las variantes que tienen únicamente `movimiento referencia_tipo='import_inicial'` y sin ventas asociadas. Las que ya tienen venta se **conservan** para no romper histórico (y el re-import les pone sufijo `-2`).
+3. **Preparar payload**: `node scripts/preparar-import-jp.mjs > tmp-import/payload.json` — lee el xlsx, mapea columnas SI/NO a enum, incluyendo los nuevos edge cases `doble_bordado_y_completo` y `triple_completo`.
+4. **Generar SQL**: `node scripts/generar-sql-import.mjs` — produce `tmp-import/import.sql`.
+5. **Aplicar por MCP**: los chunks se pasan a `execute_sql` o `apply_migration`. El stock_cache se actualiza por trigger automáticamente al insertar los movimientos.
+
+**Futuro (1.3c)**: el importer UI detectará automáticamente el formato de JP (header en row 2, columnas SI/NO) para que pueda re-importar desde el admin sin scripts.
+
+---
+
 ## Referencias
 
 - `01-modelo-datos.md` — schema completo (fuente de verdad).
