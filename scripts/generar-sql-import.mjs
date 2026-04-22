@@ -102,35 +102,12 @@ from nueva_variante;`
     : `
 select 1 from nueva_variante;`
 
-  lines.push(`
-with prod as (${prodCte}),
-     dis as (${disCte}),
-     new_sku as (
-       select fn_generar_sku(
-         (select id from prod),
-         ${escLit(it.color ?? '')},
-         ${escLit(it.talla ?? '')},
-         (select id from dis)
-       ) as sku
-     ),
-     nueva_variante as (
-       insert into variantes (
-         producto_id, sku, talla, color, diseno_id, estampado,
-         costo_base, costo_adicional, precio_venta, notas
-       ) values (
-         (select id from prod),
-         (select sku from new_sku),
-         ${escLit(it.talla)},
-         ${escLit(it.color)},
-         (select id from dis),
-         ${escLit(it.estampado)},
-         ${escNum(it.costo_unit)},
-         ${escNum(breakdown)},
-         ${escNum(it.precio_venta)},
-         ${escLit(it.observacion)}
-       )
-       returning id
-     )${movInsert}`)
+  // Single-line compacto para fácil chunking via MCP
+  const stmt = `with prod as (${prodCte}), dis as (${disCte}), ` +
+    `new_sku as (select fn_generar_sku((select id from prod), ${escLit(it.color ?? '')}, ${escLit(it.talla ?? '')}, (select id from dis)) as sku), ` +
+    `nueva_variante as (insert into variantes (producto_id, sku, talla, color, diseno_id, estampado, costo_base, costo_adicional, precio_venta, notas) values ((select id from prod), (select sku from new_sku), ${escLit(it.talla)}, ${escLit(it.color)}, (select id from dis), ${escLit(it.estampado)}, ${escNum(it.costo_unit)}, ${escNum(breakdown)}, ${escNum(it.precio_venta)}, ${escLit(it.observacion)}) returning id)` +
+    movInsert.replace(/\n/g, ' ')
+  lines.push(stmt)
 }
 lines.push('')
 lines.push('commit;')

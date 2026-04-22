@@ -117,8 +117,11 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | C-22 | manual | Headers con espacios/acentos | XLSX con "Precio Venta" o "Diseño" | Upload desde UI | Preview muestra `"precio_venta ← de 'Precio Venta'"` y importa | pendiente (normalización ya en código, falta end-to-end UI) |
 | C-23 | manual | Alias de headers | CSV con `precio` en vez de `precio_venta` | Upload UI | Mapea por `HEADER_ALIASES` | pendiente |
 | C-24 | manual | Diseño no existente | archivo con `diseno="No Existe"` | Upload | Fila falla con mensaje "Diseño X no existe" | pendiente |
-| C-25 | integration | Inventario real 30% cargado | — | `select count(*) from productos; variantes; movimientos_inventario` | 12 productos, 41 variantes, 41 movimientos, 55 unidades | ok |
+| C-25 | integration | Inventario real 50% cargado | — | `select count(*) from productos; variantes; movimientos` | 13 productos, 87 variantes, 87 movimientos, 127 unidades | ok |
 | C-26 | known-issue | Importer UI vs. formato JP | Excel real usa 3 cols SI/NO para estampado + header en row 2 | — | Sub-tarea **1.3c**: extender importer UI para detectar header row auto y mapear SI/NO→enum. Por ahora se usa script one-shot. | bloqueado (diferido a 1.3c) |
+| C-27 | integration | wipe-import idempotente | variantes importadas sin ventas | Correr `scripts/wipe-import.sql` 2 veces | Primera vez borra todo; segunda vez deja 0/0/0 | ok (verificado) |
+| C-28 | integration | Script consolida duplicados por (producto/color/talla/diseño/estampado) | xlsx con filas repetidas | `preparar-import-jp.mjs` con dedup | Antes: 106 variantes con 35 sufijos; después dedup: 87 variantes con 17 sufijos residuales (colisiones de SKU slug por diseños similares) | ok con nota |
+| C-29 | known-issue | SKUs con sufijo `-2/-3` por colisión de slug | 2 diseños con mismas primeras 4 letras | `fn_generar_sku` agrega sufijo | ~17 de 87 variantes tienen sufijo. JP puede editar nombres o ignorar. | bloqueado (mejorar `fn_generar_sku` en F2) |
 
 ### Tarea 1.4 — Pedidos a proveedor
 

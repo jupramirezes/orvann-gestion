@@ -170,12 +170,65 @@ for (let i = 0; i < dataRows.length; i++) {
   })
 }
 
+/**
+ * Consolida filas duplicadas por clave (tipo, producto, color, talla,
+ * diseno, estampado). Si JP registra la misma variante en varias filas
+ * del xlsx (una por unidad o por lote), sumamos cantidades y tomamos
+ * el primer precio/costo encontrado.
+ *
+ * Esto evita que fn_generar_sku genere SKU-2, SKU-3, etc. para lo que
+ * en realidad es una sola variante con stock acumulado.
+ */
+const consolidados = new Map()
+for (const it of items) {
+  const key = [
+    it.tipo,
+    it.producto_base.toLowerCase().trim(),
+    (it.color ?? '').toLowerCase().trim(),
+    (it.talla ?? '').toLowerCase().trim(),
+    (it.diseno ?? '').toLowerCase().trim(),
+    it.estampado,
+  ].join('|')
+
+  const prev = consolidados.get(key)
+  if (prev) {
+    prev.cantidad += it.cantidad
+    // Mantener el costo no-cero si el primero era 0
+    if (prev.costo_unit === 0 && it.costo_unit > 0) prev.costo_unit = it.costo_unit
+    // Concatenar observaciones únicas
+    if (it.observacion && !prev.observacion?.includes(it.observacion)) {
+      prev.observacion = prev.observacion
+        ? `${prev.observacion} · ${it.observacion}`
+        : it.observacion
+    }
+    prev.rows.push(it.sourceRow)
+  } else {
+    consolidados.set(key, { ...it, rows: [it.sourceRow] })
+  }
+}
+
+const consolidatedItems = [...consolidados.values()]
+const dedupInfo = consolidatedItems
+  .filter(i => i.rows.length > 1)
+  .map(i => ({
+    producto: i.producto_base,
+    color: i.color,
+    talla: i.talla,
+    diseno: i.diseno,
+    estampado: i.estampado,
+    cantidadTotal: i.cantidad,
+    filas: i.rows,
+  }))
+
 console.log(JSON.stringify({
   fuente: FILE,
   headerRow: headerRowIdx + 1,
   totalFilas: dataRows.length,
-  aImportar: items.length,
+  filasCrudas: items.length,
+  itemsConsolidados: consolidatedItems.length,
   saltadas: skipped.length,
+  duplicadosConsolidados: dedupInfo.length,
   skipped,
-  items,
+  dedupInfo,
+  items: consolidatedItems,
 }, null, 2))
