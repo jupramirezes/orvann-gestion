@@ -256,13 +256,33 @@ Resultado total para prenda con ese estampado = base (2.200) + extra. Ejemplo: p
 
 Cuando JP actualice el Excel con más filas del inventario físico:
 
-1. **Guardar el xlsx** en `docs/referencia/inventario-fisico-template.xlsx` (reemplaza el existente).
+1. **Guardar el xlsx** en `docs/referencia/inventario-fisico.xlsx` (reemplaza el existente).
 2. **Wipe previo** (opcional, solo si querés reemplazar el dataset): correr `scripts/wipe-import.sql` por MCP. Borra solo las variantes que tienen únicamente `movimiento referencia_tipo='import_inicial'` y sin ventas asociadas. Las que ya tienen venta se **conservan** para no romper histórico (y el re-import les pone sufijo `-2`).
 3. **Preparar payload**: `node scripts/preparar-import-jp.mjs > tmp-import/payload.json` — lee el xlsx, mapea columnas SI/NO a enum, incluyendo los nuevos edge cases `doble_bordado_y_completo` y `triple_completo`.
 4. **Generar SQL**: `node scripts/generar-sql-import.mjs` — produce `tmp-import/import.sql`.
 5. **Aplicar por MCP**: los chunks se pasan a `execute_sql` o `apply_migration`. El stock_cache se actualiza por trigger automáticamente al insertar los movimientos.
 
 **Futuro (1.3c)**: el importer UI detectará automáticamente el formato de JP (header en row 2, columnas SI/NO) para que pueda re-importar desde el admin sin scripts.
+
+### Patrón de importers reusables (aplica a cualquier proyecto React + Supabase)
+
+El flujo actual con scripts de Node (`preparar-import-jp.mjs` + `generar-sql-import.mjs` + aplicar SQL por MCP) **es un parche temporal**. El usuario final no debería tocar Node para cargar datos.
+
+El patrón "correcto" — y reusable entre proyectos — tiene 5 piezas:
+
+1. **Parseo del archivo en el navegador**, no en Node. Librerías como `xlsx` o `papaparse` leen el archivo que el usuario sube al admin UI. No se suben archivos al servidor.
+2. **Validación con `zod`**. Cada tipo de import (productos, gastos, clientes, ventas históricas) declara un schema con columnas esperadas, tipos y transformaciones. Los errores van directo al usuario en lenguaje humano ("Fila 14: el precio no es un número").
+3. **Preview antes de aplicar**. El usuario ve una tabla de diffs: cuántas filas se van a crear, cuántas a actualizar, cuántas se rechazan y por qué. Nada se toca en la base hasta que apriete "Confirmar".
+4. **Apply atómico via RPC**. Una función SQL (`fn_import_<dominio>(payload jsonb)`) recibe el JSON validado y hace upserts dentro de una transacción. Si algo falla, rollback automático.
+5. **Componente genérico reusable**. Un `<DataImporter schema={} parseRow={} applyRpc={} />` de ~200 líneas que sirve para cualquier tabla. Cada import concreto son 30 líneas de declaración.
+
+**Ventaja para proyectos nuevos de JP**: este componente se copia a otro proyecto con el mismo stack (React + Supabase) y solo se reemplaza el `schema` de `zod` y la función `fn_import_*` del lado SQL. Todo el UX de preview, errores, progreso, retries ya viene hecho.
+
+**Aplicación al caso ORVANN**:
+- Sub-tarea C-26 (diferida) materializa este patrón para el inventario físico.
+- El Excel histórico del Sheet (`Control_Operativo_Orvann_Sheet_Original.xlsx`) también entraría por este importer una vez listo, para cargar ventas/gastos históricos sin depender de scripts.
+
+**Cuando hacerlo**: no bloquea F1 (hoy JP depende de Claude para re-importar). Pero es la deuda técnica con mayor ROI cuando la cierre F1 — por cada proyecto futuro donde tengas que importar un Excel, te ahorrás hacer scripts.
 
 ---
 

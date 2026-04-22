@@ -113,7 +113,7 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 | C-18 | manual | CSV: fila inválida | CSV con fila sin precio_venta | Upload | Reporte muestra fila problemática, resto se crea | pendiente |
 | C-19 | manual | CSV/XLSX: producto nuevo find-or-create | archivo con producto_base no existente | Upload | Crea producto + variante, movimiento `entrada_pedido` con cantidad inicial | ok (one-shot: 12 productos creados desde xlsx real de JP) |
 | C-20 | integration | Stock cache tras import | C-19 OK | `select stock_cache from variantes` | = cantidad inicial | ok (55 unidades totales en 41 variantes, stock_cache mantenido por trigger) |
-| C-21 | manual | XLSX real de JP importado | `docs/referencia/inventario-fisico-template.xlsx` | Script `scripts/preparar-import-jp.mjs` + `generar-sql-import.mjs` + MCP | 41 variantes, 55 unidades | ok (parcial: import one-shot hecho; el importer UI requiere ajustes) |
+| C-21 | manual | XLSX real de JP importado | `docs/referencia/inventario-fisico.xlsx` | Script `scripts/preparar-import-jp.mjs` + `generar-sql-import.mjs` + MCP | 41 variantes, 55 unidades | ok (parcial: import one-shot hecho; el importer UI requiere ajustes) |
 | C-22 | manual | Headers con espacios/acentos | XLSX con "Precio Venta" o "Diseño" | Upload desde UI | Preview muestra `"precio_venta ← de 'Precio Venta'"` y importa | pendiente (normalización ya en código, falta end-to-end UI) |
 | C-23 | manual | Alias de headers | CSV con `precio` en vez de `precio_venta` | Upload UI | Mapea por `HEADER_ALIASES` | pendiente |
 | C-24 | manual | Diseño no existente | archivo con `diseno="No Existe"` | Upload | Fila falla con mensaje "Diseño X no existe" | pendiente |

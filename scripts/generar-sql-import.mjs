@@ -67,8 +67,8 @@ for (const it of payload.items) {
 }
 
 const lines = []
-lines.push('-- Import inventario fisico real de JP (2026-04-21)')
-lines.push('-- Fuente: docs/referencia/inventario-fisico-template.xlsx (30% del total)')
+lines.push('-- Import inventario fisico real de JP')
+lines.push('-- Fuente: docs/referencia/inventario-fisico.xlsx')
 lines.push('')
 lines.push('begin;')
 lines.push('')

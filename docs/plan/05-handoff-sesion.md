@@ -88,7 +88,7 @@ a9d6770  implementa modulo Pedidos a proveedor (Tarea 1.4)
 - Script `wipe-import.sql` creado para re-imports idempotentes.
 
 ### Import real de inventario 50% ✅ (commit `1de417e`)
-- JP subió xlsx actualizado en `docs/referencia/inventario-fisico-template.xlsx`.
+- JP subió xlsx actualizado en `docs/referencia/inventario-fisico.xlsx`.
 - Formato real trae header en row 2 + 3 columnas SI/NO para estampado (en vez de un enum). El script `preparar-import-jp.mjs` ya lo parsea.
 - Script mejorado para **consolidar duplicados** por clave `(tipo, producto, color, talla, diseño, estampado)`. Resultado: 106 filas crudas → 88 items únicos consolidados.
 - `wipe-import.sql` reescrito como 3 statements secuenciales (CTEs modificantes no veían estado actualizado entre sí — idempotencia verificada).
@@ -192,15 +192,15 @@ De `docs/plan/03-fase1-tareas.md` §Decisiones tomadas:
 
 ## 7. Protocolo de trabajo (seguir religiosamente)
 
-1. **Un checkpoint a la vez**. No avanzar sin OK explícito de JP cuando hay decisión de producto.
+1. **Un checkpoint por tarea**. Al terminar, mostrá a JP qué se hizo y pedí OK para mergear. El OK aplica a **decisiones de diseño/features/producto** (lo que ve en pantalla, lo que resolvés), no a QA funcional — ese se corre al cierre de fase.
 2. **Cada tarea = un branch + un PR** con naming `v2-f1-{num}-{slug}`. Merge a `v2` solo con aprobación.
 3. **Migraciones por MCP Supabase** (`mcp__4837ffe1-6581-409e-b61b-254b31bc076c__apply_migration`). **NUNCA** SQL destructivo sin OK.
-4. **Antes de cada commit**: `npm run build` + `npm run lint` + `npm run test` — todo verde.
+4. **Antes de cada commit**: `npm run build` + `npm run lint` + `npm run test` — todo verde. CI en GitHub Actions valida lo mismo en cada push/PR (`.github/workflows/ci.yml`).
 5. **Commits en español, imperativo, minúsculas**: "agrega pantalla de cobro", no "Agregando" ni "Added".
 6. **Reporte al terminar cada tarea**: qué se hizo, commits, archivos, cómo verificar, qué queda.
 7. **Si algo no está claro, preguntá** (10 preguntas > 1 construcción tirada).
 8. **Ejecutar sin pedir confirmación** para tareas definidas en este doc. JP prefiere ver resultado.
-9. **JP testea todo junto al final con QA**, no por chunks. No pedir que pruebe cada sub-feature.
+9. **QA funcional se hace al cierre de fase**, no chunk por chunk. En checkpoint JP revisa diseño/features, pero no prueba cada sub-feature aisladamente. Test manual integral al cerrar F1 según `04-qa-plan.md`.
 10. **Estilo visual**: indistinguible de DURATA. Si dudás de un componente, mirá `C:\Personal\Negocios\DURATA\durata_crm\src\components\*.tsx`.
 
 ---
@@ -232,7 +232,7 @@ De `docs/plan/03-fase1-tareas.md` §Decisiones tomadas:
 - `supabase/seed.sql` — proveedores / categorías / parametros_costo / diseños (inactivos por default).
 
 ### Scripts de import
-- `scripts/preparar-import-jp.mjs` — parsea `docs/referencia/inventario-fisico-template.xlsx`, dedup, genera `tmp-import/payload.json`.
+- `scripts/preparar-import-jp.mjs` — parsea `docs/referencia/inventario-fisico.xlsx`, dedup, genera `tmp-import/payload.json`.
 - `scripts/generar-sql-import.mjs` — genera `tmp-import/import.sql` one-liner.
 - `scripts/wipe-import.sql` — limpia variantes/movimientos del import (idempotente).
 - `scripts/aplicar-import.mjs` — draft (no operativo; usamos MCP direct).

@@ -1,5 +1,5 @@
 /**
- * Lee el xlsx de JP (docs/referencia/inventario-fisico-template.xlsx)
+ * Lee el xlsx de JP (docs/referencia/inventario-fisico.xlsx)
  * y transforma cada fila al formato canónico del sistema. Devuelve un
  * JSON que el caller (o Claude via MCP) usa para generar SQL de import.
  *
@@ -17,7 +17,7 @@
 
 import XLSX from 'xlsx'
 
-const FILE = 'docs/referencia/inventario-fisico-template.xlsx'
+const FILE = 'docs/referencia/inventario-fisico.xlsx'
 
 const wb = XLSX.readFile(FILE)
 const sheet = wb.Sheets[wb.SheetNames[0]]
