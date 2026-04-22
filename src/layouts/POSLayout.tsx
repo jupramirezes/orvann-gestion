@@ -1,14 +1,23 @@
 import { Outlet } from 'react-router-dom'
+import { CarritoProvider } from '../hooks/useCarrito'
+import { OfflineBanner } from '../components/pos/OfflineBanner'
+import { POSTopbar } from '../components/pos/POSTopbar'
 
 /**
- * Layout minimal para el POS móvil: sin sidebar. El Topbar del POS
- * es específico (logo + carrito + menú usuario) y se monta dentro de
- * las páginas del POS (Tarea 1.5).
+ * Layout del POS móvil. Mobile-first, sin sidebar. El topbar tiene
+ * logo + nombre del vendedor + carrito con badge. Un banner rojo se
+ * muestra en la parte superior cuando no hay conexión.
  */
 export default function POSLayout() {
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] flex flex-col">
-      <Outlet />
-    </div>
+    <CarritoProvider>
+      <div className="min-h-screen bg-[var(--color-bg)] flex flex-col">
+        <OfflineBanner />
+        <POSTopbar />
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    </CarritoProvider>
   )
 }

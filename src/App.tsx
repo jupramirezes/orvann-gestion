@@ -16,6 +16,7 @@ import Pedidos from './pages/admin/Pedidos'
 import PedidoNuevo from './pages/admin/PedidoNuevo'
 import PedidoDetalle from './pages/admin/PedidoDetalle'
 import POSHome from './pages/pos/POSHome'
+import Carrito from './pages/pos/Carrito'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -78,6 +79,7 @@ export default function App() {
 
         <Route path="/pos" element={<POSLayout />}>
           <Route index element={<POSHome />} />
+          <Route path="carrito" element={<Carrito />} />
         </Route>
       </Routes>
     </ToastProvider>
