@@ -63,6 +63,7 @@ const GROUPS: NavGroup[] = [
       { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
       { to: '/admin/ventas', icon: ShoppingBag, label: 'Ventas' },
       { to: '/admin/pedidos', icon: Truck, label: 'Pedidos' },
+      { to: '/admin/transformaciones', icon: ArrowLeftRight, label: 'Transformaciones' },
     ],
   },
   {
