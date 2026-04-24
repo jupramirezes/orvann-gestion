@@ -34,7 +34,18 @@ import {
   type Pedido,
   type PedidoItemConVariante,
 } from '../../lib/queries/pedidos'
-import { listVariantes, type VarianteConJoin } from '../../lib/queries/variantes'
+import {
+  listVariantes,
+  listParametrosCosto,
+  createVariante,
+  generarSku,
+  type VarianteConJoin,
+} from '../../lib/queries/variantes'
+import { listDisenos, type Diseno } from '../../lib/queries/disenos'
+import { calcularCostoAdicional, ESTAMPADO_LABELS } from '../../lib/catalogo'
+import { Constants } from '../../types/database'
+import { MoneyInput } from '../../components/MoneyInput'
+import type { Database } from '../../types/database'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -46,6 +57,8 @@ export default function PedidoDetalle() {
   const [pedido, setPedido] = useState<PedidoDetalle | null>(null)
   const [items, setItems] = useState<PedidoItemConVariante[]>([])
   const [variantes, setVariantes] = useState<VarianteConJoin[]>([])
+  const [disenos, setDisenos] = useState<Diseno[]>([])
+  const [parametros, setParametros] = useState<Database['public']['Tables']['parametros_costo']['Row'][]>([])
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const [openPago, setOpenPago] = useState(false)
@@ -60,7 +73,9 @@ export default function PedidoDetalle() {
       getPedido(id),
       listPedidoItems(id),
       listVariantes({ limit: 500 }),
-    ]).then(([{ data: p, error: errP }, { data: its, error: errI }, { data: vars }]) => {
+      listDisenos({ includeInactive: false }),
+      listParametrosCosto(),
+    ]).then(([{ data: p, error: errP }, { data: its, error: errI }, { data: vars }, { data: dis }, { data: params }]) => {
       if (cancelled) return
       setLoading(false)
       if (errP) { addToast('error', errP.message); return }
@@ -68,6 +83,8 @@ export default function PedidoDetalle() {
       if (errI) addToast('error', errI.message)
       else setItems((its as PedidoItemConVariante[]) ?? [])
       if (vars) setVariantes(vars as VarianteConJoin[])
+      if (dis) setDisenos(dis)
+      if (params) setParametros(params)
     })
     return () => { cancelled = true }
   }, [id, reloadKey, addToast])
@@ -290,6 +307,8 @@ export default function PedidoDetalle() {
         <MapeoItemModal
           item={mapeoItem}
           variantes={variantes}
+          disenos={disenos}
+          parametros={parametros}
           onClose={() => setMapeoItem(null)}
           onConfirm={async (varianteId) => {
             const { error } = await updatePedidoItem(mapeoItem.id, { variante_id: varianteId })
@@ -382,17 +401,52 @@ function RecepcionModal({
   )
 }
 
+type ProductoLite = {
+  id: string
+  nombre: string
+  tipo: Database['public']['Enums']['tipo_producto']
+}
+
 function MapeoItemModal({
-  item, variantes, onClose, onConfirm,
+  item, variantes, disenos, parametros, onClose, onConfirm,
 }: {
   item: PedidoItemConVariante
   variantes: VarianteConJoin[]
+  disenos: Diseno[]
+  parametros: Database['public']['Tables']['parametros_costo']['Row'][]
   onClose: () => void
   onConfirm: (varianteId: string) => Promise<void>
 }) {
+  const { addToast } = useToast()
+  const [modo, setModo] = useState<'existente' | 'nueva'>('existente')
   const [varianteId, setVarianteId] = useState('')
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState(item.descripcion_libre ?? '')
+
+  // Modo "nueva variante"
+  const [productoId, setProductoId] = useState('')
+  const [color, setColor] = useState('')
+  const [talla, setTalla] = useState('')
+  const [disenoId, setDisenoId] = useState('')
+  const [estampado, setEstampado] = useState<Database['public']['Enums']['tipo_estampado']>('ninguno')
+  const [costoBase, setCostoBase] = useState(Number(item.costo_unitario) || 0)
+  const [precioVenta, setPrecioVenta] = useState(0)
+
+  // Lista única de productos tomada de las variantes (dedup)
+  const productos: ProductoLite[] = (() => {
+    const map = new Map<string, ProductoLite>()
+    for (const v of variantes) {
+      if (v.producto && !map.has(v.producto.id)) {
+        map.set(v.producto.id, v.producto)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  })()
+
+  const productoSeleccionado = productos.find(p => p.id === productoId) ?? null
+  const costoAdicional = productoSeleccionado
+    ? calcularCostoAdicional(parametros, productoSeleccionado.tipo, estampado).total
+    : 0
 
   const filtered = variantes.filter(v => {
     if (!search) return true
@@ -401,12 +455,62 @@ function MapeoItemModal({
       v.sku.toLowerCase().includes(s) ||
       (v.producto?.nombre ?? '').toLowerCase().includes(s) ||
       (v.color ?? '').toLowerCase().includes(s) ||
-      (v.talla ?? '').toLowerCase().includes(s)
+      (v.talla ?? '').toLowerCase().includes(s) ||
+      (v.diseno?.nombre ?? '').toLowerCase().includes(s)
     )
   }).slice(0, 50)
 
+  const puedeCrearNueva =
+    !!productoId &&
+    !!color.trim() &&
+    !!talla.trim() &&
+    costoBase > 0 &&
+    precioVenta > 0 &&
+    !saving
+
+  async function handleCrearYMapear() {
+    if (!puedeCrearNueva) return
+    setSaving(true)
+
+    const sku = await generarSku(
+      productoId,
+      color.trim(),
+      talla.trim(),
+      disenoId || null,
+    ).catch(() => null)
+
+    if (!sku) {
+      setSaving(false)
+      addToast('error', 'No se pudo generar el SKU')
+      return
+    }
+
+    const { data: nueva, error: errCrear } = await createVariante({
+      producto_id: productoId,
+      sku,
+      color: color.trim(),
+      talla: talla.trim(),
+      diseno_id: disenoId || null,
+      estampado,
+      costo_base: costoBase,
+      costo_adicional: costoAdicional,
+      precio_venta: precioVenta,
+      activo: true,
+      notas: `Creada desde mapeo de pedido (item "${item.descripcion_libre ?? ''}")`,
+    })
+
+    if (errCrear || !nueva) {
+      setSaving(false)
+      addToast('error', errCrear?.message ?? 'Error creando variante')
+      return
+    }
+
+    await onConfirm(nueva.id)
+    setSaving(false)
+  }
+
   return (
-    <Modal open onClose={onClose} title="Mapear item a variante" size="md">
+    <Modal open onClose={onClose} title="Mapear item a variante" size="lg">
       <div className="space-y-4">
         <div className="card p-3 text-xs">
           <p className="font-semibold">Item del pedido</p>
@@ -415,47 +519,131 @@ function MapeoItemModal({
           </p>
         </div>
 
-        <Field label="Buscar variante" hint="Por SKU, producto, color o talla">
-          <Input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="ej. boxy M negra"
-          />
-        </Field>
-
-        <Field label="Variante" required>
-          <Select value={varianteId} onChange={e => setVarianteId(e.target.value)}>
-            <option value="">— Seleccionar —</option>
-            {filtered.map(v => (
-              <option key={v.id} value={v.id}>
-                {v.sku} · {v.producto?.nombre ?? ''} · {v.color ?? ''} {v.talla ?? ''} · stock {v.stock_cache}
-              </option>
-            ))}
-          </Select>
-          {filtered.length === 50 && (
-            <span className="text-[10px] text-[var(--color-text-faint)]">
-              Mostrando 50 variantes, refiná la búsqueda.
-            </span>
-          )}
-        </Field>
-
-        <p className="text-[11px] text-[var(--color-text-faint)]">
-          Si la variante que necesitás no existe todavía, cerrá este modal, creala en{' '}
-          <Link to="/admin/productos" className="text-[var(--color-primary)] hover:underline">/admin/productos</Link>
-          {' '}y volvé.
-        </p>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button
+        <div className="flex gap-2">
+          <button
             type="button"
-            variant="accent"
-            disabled={!varianteId || saving}
-            onClick={async () => { setSaving(true); await onConfirm(varianteId); setSaving(false) }}
+            onClick={() => setModo('existente')}
+            className={`flex-1 h-9 text-xs rounded-md ${
+              modo === 'existente'
+                ? 'bg-[var(--color-text)] text-[var(--color-surface)]'
+                : 'border border-[var(--color-border)] text-[var(--color-text-muted)]'
+            }`}
           >
-            {saving ? 'Guardando…' : 'Confirmar mapeo'}
-          </Button>
+            Elegir variante existente
+          </button>
+          <button
+            type="button"
+            onClick={() => setModo('nueva')}
+            className={`flex-1 h-9 text-xs rounded-md ${
+              modo === 'nueva'
+                ? 'bg-[var(--color-text)] text-[var(--color-surface)]'
+                : 'border border-[var(--color-border)] text-[var(--color-text-muted)]'
+            }`}
+          >
+            + Crear variante nueva
+          </button>
         </div>
+
+        {modo === 'existente' ? (
+          <>
+            <Field label="Buscar variante" hint="Por SKU, producto, color, talla o diseño">
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="ej. boxy M negra"
+              />
+            </Field>
+
+            <Field label="Variante" required>
+              <Select value={varianteId} onChange={e => setVarianteId(e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {filtered.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.sku} · {v.producto?.nombre ?? ''} · {v.color ?? ''} {v.talla ?? ''} · stock {v.stock_cache}
+                  </option>
+                ))}
+              </Select>
+              {filtered.length === 50 && (
+                <span className="text-[10px] text-[var(--color-text-faint)]">
+                  Mostrando 50 variantes, refiná la búsqueda.
+                </span>
+              )}
+            </Field>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+              <Button
+                type="button"
+                variant="accent"
+                disabled={!varianteId || saving}
+                onClick={async () => { setSaving(true); await onConfirm(varianteId); setSaving(false) }}
+              >
+                {saving ? 'Guardando…' : 'Confirmar mapeo'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Producto" required>
+                <Select value={productoId} onChange={e => setProductoId(e.target.value)}>
+                  <option value="">— Seleccionar —</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Estampado">
+                <Select
+                  value={estampado}
+                  onChange={e => setEstampado(e.target.value as Database['public']['Enums']['tipo_estampado'])}
+                >
+                  {Constants.public.Enums.tipo_estampado.map(te => (
+                    <option key={te} value={te}>{ESTAMPADO_LABELS[te]}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Color" required>
+                <Input value={color} onChange={e => setColor(e.target.value)} placeholder="ej. Negro" />
+              </Field>
+              <Field label="Talla" required>
+                <Input value={talla} onChange={e => setTalla(e.target.value)} placeholder="ej. M" />
+              </Field>
+            </div>
+            <Field label="Diseño" hint="Opcional; solo si aplica (diseño cultural)">
+              <Select value={disenoId} onChange={e => setDisenoId(e.target.value)}>
+                <option value="">— Sin diseño —</option>
+                {disenos.map(d => (
+                  <option key={d.id} value={d.id}>{d.nombre}</option>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Costo base" required hint={`+ ${formatCOP(costoAdicional)} adicional calculado`}>
+                <MoneyInput value={costoBase} onChange={setCostoBase} step="500" min="0" />
+              </Field>
+              <Field label="Precio de venta" required>
+                <MoneyInput value={precioVenta} onChange={setPrecioVenta} step="1000" min="0" />
+              </Field>
+            </div>
+            <p className="text-[11px] text-[var(--color-text-faint)]">
+              El SKU se genera automáticamente. Costo total = {formatCOP(costoBase + costoAdicional)}.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+              <Button
+                type="button"
+                variant="accent"
+                disabled={!puedeCrearNueva}
+                onClick={handleCrearYMapear}
+              >
+                {saving ? 'Creando…' : 'Crear variante y mapear'}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   )
