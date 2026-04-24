@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Save } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Sparkles } from 'lucide-react'
 import {
   PageHeader,
   Button,
@@ -12,26 +12,77 @@ import {
 import { useToast } from '../../components/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCOP } from '../../lib/utils'
-import { listVariantes, listParametrosCosto, type VarianteConJoin } from '../../lib/queries/variantes'
+import {
+  listVariantes,
+  listParametrosCosto,
+  createVariante,
+  generarSku,
+  type VarianteConJoin,
+} from '../../lib/queries/variantes'
+import { listDisenos, type Diseno } from '../../lib/queries/disenos'
 import { calcularCostoAdicional, ESTAMPADO_LABELS } from '../../lib/catalogo'
 import { createTransformacion } from '../../lib/queries/transformaciones'
 import type { Database } from '../../types/database'
 
 type ParametroCosto = Database['public']['Tables']['parametros_costo']['Row']
+type TipoEstampado = Database['public']['Enums']['tipo_estampado']
 
 /**
- * Costo del estampado puro (sin base: etiqueta/marquilla/bolsa, que ya
- * estaban en la variante origen). Es la diferencia entre el total con
- * estampado y el total sin estampado para el mismo tipo de producto.
+ * Dado los 3 flags de estampado (punto estampado, punto bordado, DTG)
+ * devuelve el valor canónico del enum `tipo_estampado`. `ninguno` si
+ * no hay nada marcado (no es transformación válida).
+ */
+function combinacionAEstampado(flags: {
+  puntoEstampado: boolean
+  puntoBordado: boolean
+  dtg: boolean
+}): TipoEstampado {
+  const { puntoEstampado, puntoBordado, dtg } = flags
+  if (dtg && puntoEstampado && puntoBordado) return 'triple_completo'
+  if (dtg && puntoEstampado) return 'doble_punto_y_completo'
+  if (dtg && puntoBordado) return 'doble_bordado_y_completo'
+  if (dtg) return 'completo_dtg'
+  if (puntoBordado) return 'punto_corazon_bordado'
+  if (puntoEstampado) return 'punto_corazon_estampado'
+  return 'ninguno'
+}
+
+/**
+ * Costo del estampado puro (sin base: etiqueta/marquilla/bolsa).
+ * Diferencia entre total con estampado y total sin estampado.
  */
 function costoSoloEstampado(
   parametros: ParametroCosto[],
   tipo: Database['public']['Enums']['tipo_producto'],
-  estampado: Database['public']['Enums']['tipo_estampado'],
+  estampado: TipoEstampado,
 ): number {
-  const conEstampado = calcularCostoAdicional(parametros, tipo, estampado).total
-  const sinEstampado = calcularCostoAdicional(parametros, tipo, 'ninguno').total
-  return conEstampado - sinEstampado
+  const con = calcularCostoAdicional(parametros, tipo, estampado).total
+  const sin = calcularCostoAdicional(parametros, tipo, 'ninguno').total
+  return con - sin
+}
+
+/**
+ * Busca en el catálogo una variante que coincida con los atributos
+ * destino (producto + color + talla + estampado + diseño). Si existe,
+ * la transformación suma a su stock; si no, se crea una nueva.
+ */
+function encontrarDestino(
+  variantes: VarianteConJoin[],
+  origen: VarianteConJoin,
+  estampado: TipoEstampado,
+  disenoId: string | null,
+): VarianteConJoin | null {
+  return (
+    variantes.find(
+      v =>
+        v.producto_id === origen.producto_id &&
+        (v.color ?? null) === (origen.color ?? null) &&
+        (v.talla ?? null) === (origen.talla ?? null) &&
+        v.estampado === estampado &&
+        (v.diseno_id ?? null) === (disenoId || null) &&
+        v.id !== origen.id,
+    ) ?? null
+  )
 }
 
 function nombreVariante(v: VarianteConJoin): string {
@@ -50,13 +101,17 @@ export default function TransformacionNueva() {
   const { addToast } = useToast()
 
   const [variantes, setVariantes] = useState<VarianteConJoin[]>([])
+  const [disenos, setDisenos] = useState<Diseno[]>([])
   const [parametros, setParametros] = useState<ParametroCosto[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
   const [origenId, setOrigenId] = useState('')
-  const [destinoId, setDestinoId] = useState('')
+  const [puntoEstampado, setPuntoEstampado] = useState(false)
+  const [puntoBordado, setPuntoBordado] = useState(false)
+  const [dtg, setDtg] = useState(false)
+  const [disenoId, setDisenoId] = useState('')
   const [cantidad, setCantidad] = useState(1)
   const [costoUnit, setCostoUnit] = useState(0)
   const [costoTocado, setCostoTocado] = useState(false)
@@ -67,7 +122,8 @@ export default function TransformacionNueva() {
     Promise.all([
       listVariantes({ limit: 500, includeInactive: false }),
       listParametrosCosto(),
-    ]).then(([vs, ps]) => {
+      listDisenos({ includeInactive: false }),
+    ]).then(([vs, ps, ds]) => {
       if (cancelled) return
       setLoading(false)
       if (vs.error) {
@@ -76,13 +132,13 @@ export default function TransformacionNueva() {
       }
       setVariantes((vs.data as VarianteConJoin[]) ?? [])
       if (ps.data) setParametros(ps.data)
+      if (ds.data) setDisenos(ds.data)
     })
     return () => {
       cancelled = true
     }
   }, [addToast])
 
-  // Filtros: origen = básicas con stock > 0. destino = cualquier variante.
   const origenes = useMemo(
     () =>
       variantes
@@ -90,52 +146,140 @@ export default function TransformacionNueva() {
         .sort((a, b) => a.sku.localeCompare(b.sku)),
     [variantes],
   )
-  const destinos = useMemo(
-    () =>
-      variantes
-        .filter(v => v.id !== origenId)
-        .sort((a, b) => a.sku.localeCompare(b.sku)),
-    [variantes, origenId],
-  )
-
   const origen = useMemo(
     () => variantes.find(v => v.id === origenId) ?? null,
     [variantes, origenId],
   )
-  const destino = useMemo(
-    () => variantes.find(v => v.id === destinoId) ?? null,
-    [variantes, destinoId],
-  )
-
   const stockOrigen = origen?.stock_cache ?? 0
 
-  // Handler del select de destino: al cambiar, calcula el costo
-  // sugerido inline (sin useEffect) para evitar cascading renders.
-  function handleChangeDestino(id: string) {
-    setDestinoId(id)
-    setCostoTocado(false)
-    const dest = variantes.find(v => v.id === id)
-    if (!dest || !parametros.length) {
+  const tipoEstampado = useMemo(
+    () =>
+      combinacionAEstampado({ puntoEstampado, puntoBordado, dtg }),
+    [puntoEstampado, puntoBordado, dtg],
+  )
+  const hayEstampado = tipoEstampado !== 'ninguno'
+
+  const destinoExistente = useMemo(
+    () =>
+      origen && hayEstampado
+        ? encontrarDestino(variantes, origen, tipoEstampado, disenoId || null)
+        : null,
+    [origen, hayEstampado, tipoEstampado, disenoId, variantes],
+  )
+
+  const disenoSeleccionado = useMemo(
+    () => disenos.find(d => d.id === disenoId) ?? null,
+    [disenos, disenoId],
+  )
+
+  // Costo sugerido = costo puro del estampado combinado
+  function actualizarCostoSugerido(
+    flags: { puntoEstampado: boolean; puntoBordado: boolean; dtg: boolean },
+    tocado: boolean,
+  ) {
+    if (tocado || !origen || !parametros.length) return
+    const estampado = combinacionAEstampado(flags)
+    if (estampado === 'ninguno') {
       setCostoUnit(0)
       return
     }
-    const tipoProd = dest.producto?.tipo ?? 'prenda'
-    const estampadoDestino = dest.estampado ?? 'ninguno'
-    setCostoUnit(costoSoloEstampado(parametros, tipoProd, estampadoDestino))
+    const tipoProd = origen.producto?.tipo ?? 'prenda'
+    setCostoUnit(costoSoloEstampado(parametros, tipoProd, estampado))
   }
+
+  function toggle(
+    flag: 'puntoEstampado' | 'puntoBordado' | 'dtg',
+    value: boolean,
+  ) {
+    const next = { puntoEstampado, puntoBordado, dtg, [flag]: value }
+    if (flag === 'puntoEstampado') setPuntoEstampado(value)
+    if (flag === 'puntoBordado') setPuntoBordado(value)
+    if (flag === 'dtg') setDtg(value)
+    actualizarCostoSugerido(next, costoTocado)
+  }
+
+  function handleChangeOrigen(id: string) {
+    setOrigenId(id)
+    const newOrigen = variantes.find(v => v.id === id) ?? null
+    if (!costoTocado && newOrigen && parametros.length && hayEstampado) {
+      const tipoProd = newOrigen.producto?.tipo ?? 'prenda'
+      setCostoUnit(costoSoloEstampado(parametros, tipoProd, tipoEstampado))
+    }
+  }
+
+  // Precio sugerido para la variante destino nueva = precio origen + costo estampado
+  const precioDestinoSugerido = useMemo(() => {
+    if (!origen) return 0
+    return Number(origen.precio_venta) + costoUnit
+  }, [origen, costoUnit])
+
+  const dtgSinDiseno = dtg && !disenoId
 
   const puedeGuardar =
     !!origenId &&
-    !!destinoId &&
-    origenId !== destinoId &&
+    hayEstampado &&
     cantidad > 0 &&
     cantidad <= stockOrigen &&
     costoUnit >= 0 &&
+    !dtgSinDiseno &&
     !submitting
 
   async function handleSubmit() {
-    if (!puedeGuardar) return
+    if (!puedeGuardar || !origen) return
     setSubmitting(true)
+
+    let destinoId = destinoExistente?.id
+    let varianteCreada = false
+
+    // 1. Si el destino no existe, crearlo al vuelo con SKU automático
+    if (!destinoId) {
+      const sku = await generarSku(
+        origen.producto_id,
+        origen.color,
+        origen.talla,
+        disenoId || null,
+      ).catch(() => null)
+
+      if (!sku) {
+        setSubmitting(false)
+        addToast('error', 'No se pudo generar el SKU del destino')
+        return
+      }
+
+      const tipoProd = origen.producto?.tipo ?? 'prenda'
+      const costoAdicional = calcularCostoAdicional(
+        parametros,
+        tipoProd,
+        tipoEstampado,
+      ).total
+
+      const { data: nueva, error: errCrear } = await createVariante({
+        producto_id: origen.producto_id,
+        sku,
+        color: origen.color,
+        talla: origen.talla,
+        diseno_id: disenoId || null,
+        estampado: tipoEstampado,
+        costo_base: Number(origen.costo_base),
+        costo_adicional: costoAdicional,
+        precio_venta: precioDestinoSugerido,
+        activo: true,
+        notas: `Creada automáticamente desde transformación de ${origen.sku}`,
+      })
+
+      if (errCrear || !nueva) {
+        setSubmitting(false)
+        addToast(
+          'error',
+          `No se pudo crear la variante destino: ${errCrear?.message ?? 'desconocido'}`,
+        )
+        return
+      }
+      destinoId = nueva.id
+      varianteCreada = true
+    }
+
+    // 2. Crear la transformación (trigger mueve stock)
     const { error } = await createTransformacion({
       fecha,
       variante_origen_id: origenId,
@@ -145,14 +289,18 @@ export default function TransformacionNueva() {
       notas: notas.trim() || null,
       usuario_id: user?.id ?? null,
     })
+
     setSubmitting(false)
     if (error) {
       addToast('error', error.message)
       return
     }
+
     addToast(
       'success',
-      `Transformación registrada — stock ajustado en las 2 variantes`,
+      varianteCreada
+        ? 'Variante destino creada + transformación registrada'
+        : 'Transformación registrada — stock ajustado',
     )
     navigate('/admin/transformaciones')
   }
@@ -178,132 +326,222 @@ export default function TransformacionNueva() {
 
       <PageHeader
         title="Nueva transformación"
-        subtitle="Registrar paso de variante básica a estampada"
+        subtitle="Tomá una básica, marcá qué se le aplica y el destino se calcula solo"
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 card p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Fecha" required>
-              <Input
-                type="date"
-                value={fecha}
-                onChange={e => setFecha(e.target.value)}
-              />
-            </Field>
-            <Field label="Cantidad" required hint={stockOrigen ? `Stock disponible: ${stockOrigen}` : ''}>
-              <Input
-                type="number"
-                value={cantidad || ''}
-                onChange={e => setCantidad(Number(e.target.value) || 0)}
-                min="1"
-                max={stockOrigen || undefined}
-                invalid={cantidad > stockOrigen && stockOrigen > 0}
-              />
-            </Field>
-          </div>
-
-          <Field
-            label="Variante origen (básica con stock)"
-            required
-            hint={
-              origenes.length === 0
-                ? 'No hay variantes básicas con stock disponible'
-                : `${origenes.length} variantes elegibles`
-            }
-          >
+        <div className="lg:col-span-2 space-y-5">
+          {/* Paso 1 — prenda básica */}
+          <section className="card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[var(--color-text)] text-[var(--color-surface)] flex items-center justify-center text-[10px] font-bold">
+                1
+              </span>
+              <h3 className="text-sm font-semibold">Prenda básica a transformar</h3>
+            </div>
             <Select
               value={origenId}
-              onChange={e => {
-                setOrigenId(e.target.value)
-                if (destinoId === e.target.value) setDestinoId('')
-              }}
+              onChange={e => handleChangeOrigen(e.target.value)}
             >
-              <option value="">— Seleccionar origen —</option>
+              <option value="">
+                — {origenes.length} básicas disponibles —
+              </option>
               {origenes.map(v => (
                 <option key={v.id} value={v.id}>
                   [{v.stock_cache}] {v.sku} · {nombreVariante(v)}
                 </option>
               ))}
             </Select>
-          </Field>
+            <div className="flex items-center justify-between text-xs">
+              <Field label="Cantidad" required hint={stockOrigen ? `Stock disponible: ${stockOrigen}` : ''}>
+                <Input
+                  type="number"
+                  value={cantidad || ''}
+                  onChange={e => setCantidad(Number(e.target.value) || 0)}
+                  min="1"
+                  max={stockOrigen || undefined}
+                  invalid={cantidad > stockOrigen && stockOrigen > 0}
+                  className="w-28"
+                />
+              </Field>
+              <Field label="Fecha">
+                <Input
+                  type="date"
+                  value={fecha}
+                  onChange={e => setFecha(e.target.value)}
+                  className="w-40"
+                />
+              </Field>
+            </div>
+          </section>
 
-          <Field
-            label="Variante destino (estampada)"
-            required
-            hint={
-              destino && (destino.stock_cache ?? 0) === 0
-                ? 'Stock actual del destino: 0'
-                : destino
-                  ? `Stock actual del destino: ${destino.stock_cache}`
-                  : 'Seleccioná el destino para ver el costo sugerido'
-            }
-          >
+          {/* Paso 2 — aplicar estampados */}
+          <section className="card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[var(--color-text)] text-[var(--color-surface)] flex items-center justify-center text-[10px] font-bold">
+                2
+              </span>
+              <h3 className="text-sm font-semibold">¿Qué se le aplica?</h3>
+            </div>
+            <p className="text-xs text-[var(--color-text-label)]">
+              Marcá todo lo que tenga la prenda transformada. Se pueden combinar.
+            </p>
+            <div className="space-y-2">
+              <CheckRow
+                checked={puntoEstampado}
+                onChange={v => toggle('puntoEstampado', v)}
+                label="Punto corazón estampado"
+                hint="Logo de ORVANN estampado en el pecho (sobre la letra)"
+              />
+              <CheckRow
+                checked={puntoBordado}
+                onChange={v => toggle('puntoBordado', v)}
+                label="Punto corazón bordado"
+                hint="Logo de ORVANN bordado en el pecho"
+              />
+              <CheckRow
+                checked={dtg}
+                onChange={v => toggle('dtg', v)}
+                label="Estampado DTG completo"
+                hint="Estampa grande (pecho, espalda o ambos) con diseño"
+              />
+            </div>
+
+            {hayEstampado && (
+              <div className="rounded-md bg-[var(--color-surface-2)] p-2.5 text-xs">
+                <span className="text-[var(--color-text-label)]">Resultado: </span>
+                <span className="font-medium">{ESTAMPADO_LABELS[tipoEstampado]}</span>
+              </div>
+            )}
+          </section>
+
+          {/* Paso 3 — diseño (requerido si DTG) */}
+          <section className="card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[var(--color-text)] text-[var(--color-surface)] flex items-center justify-center text-[10px] font-bold">
+                3
+              </span>
+              <h3 className="text-sm font-semibold">
+                Diseño {dtg && <span className="text-[var(--color-accent-red)] text-xs">obligatorio para DTG</span>}
+                {!dtg && <span className="text-[var(--color-text-faint)] text-xs font-normal">(opcional)</span>}
+              </h3>
+            </div>
             <Select
-              value={destinoId}
-              onChange={e => handleChangeDestino(e.target.value)}
-              disabled={!origenId}
+              value={disenoId}
+              onChange={e => setDisenoId(e.target.value)}
+              invalid={dtgSinDiseno}
             >
-              <option value="">— Seleccionar destino —</option>
-              {destinos.map(v => (
-                <option key={v.id} value={v.id}>
-                  {v.sku} · {nombreVariante(v)}
-                  {v.estampado && v.estampado !== 'ninguno'
-                    ? ` — ${ESTAMPADO_LABELS[v.estampado]}`
-                    : ''}
+              <option value="">— Sin diseño específico —</option>
+              {disenos.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.nombre}
                 </option>
               ))}
             </Select>
-          </Field>
+            {disenos.length === 0 && (
+              <p className="text-xs text-[var(--color-accent-orange)]">
+                No hay diseños activos. Creá uno en /admin/disenos.
+              </p>
+            )}
+          </section>
 
-          <Field
-            label="Costo del estampado por unidad"
-            hint={
-              costoTocado
-                ? 'Editado manualmente'
-                : 'Sugerido según el tipo de estampado del destino'
-            }
-          >
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
-                $
+          {/* Paso 4 — costo + notas */}
+          <section className="card p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[var(--color-text)] text-[var(--color-surface)] flex items-center justify-center text-[10px] font-bold">
+                4
               </span>
-              <Input
-                type="number"
-                value={costoUnit || ''}
-                onChange={e => {
-                  setCostoUnit(Number(e.target.value) || 0)
-                  setCostoTocado(true)
-                }}
-                className="pl-7 tabular-nums"
-                step="500"
-                min="0"
-              />
+              <h3 className="text-sm font-semibold">Costo y notas</h3>
             </div>
-          </Field>
-
-          <Field label="Notas">
-            <Textarea
-              value={notas}
-              onChange={e => setNotas(e.target.value)}
-              placeholder="Lote, detalles del estampado, ajustes del diseño…"
-            />
-          </Field>
+            <Field
+              label="Costo del estampado por unidad"
+              hint={
+                costoTocado
+                  ? 'Editado manualmente'
+                  : 'Sugerido según la combinación marcada — editable'
+              }
+            >
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
+                  $
+                </span>
+                <Input
+                  type="number"
+                  value={costoUnit || ''}
+                  onChange={e => {
+                    setCostoUnit(Number(e.target.value) || 0)
+                    setCostoTocado(true)
+                  }}
+                  className="pl-7 tabular-nums"
+                  step="500"
+                  min="0"
+                />
+              </div>
+            </Field>
+            <Field label="Notas">
+              <Textarea
+                value={notas}
+                onChange={e => setNotas(e.target.value)}
+                placeholder="Detalles del lote, ajustes, etc."
+              />
+            </Field>
+          </section>
         </div>
 
+        {/* Panel de preview lateral */}
         <aside className="card p-5 h-fit sticky top-4 space-y-4">
           <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-label)] font-semibold">
-            Flujo
+            Así quedará
           </p>
 
-          <div className="space-y-3">
-            <VariantePreview v={origen} label="De" stockOverride={stockOrigen} />
-            <div className="flex items-center justify-center text-[var(--color-text-faint)] gap-1 text-xs">
-              <span>×{cantidad}</span>
-              <ArrowRight size={14} />
-            </div>
-            <VariantePreview v={destino} label="A" />
+          {/* Origen */}
+          <VariantePreview label="De" origen={origen} />
+
+          <div className="flex items-center justify-center text-[var(--color-text-faint)] gap-1 text-xs">
+            <span className="tabular-nums">×{cantidad}</span>
+            <ArrowRight size={14} />
           </div>
+
+          {/* Destino — existente o preview del nuevo */}
+          {!hayEstampado || !origen ? (
+            <div className="rounded-lg bg-[var(--color-surface-2)] p-3 text-xs text-[var(--color-text-faint)] italic">
+              Seleccioná básica + marcá al menos un estampado
+            </div>
+          ) : destinoExistente ? (
+            <div className="rounded-lg bg-[var(--color-surface-2)] p-3">
+              <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-semibold mb-1 flex items-center gap-1">
+                ✓ A (ya existe)
+              </p>
+              <p className="text-sm font-medium">{destinoExistente.producto?.nombre ?? '—'}</p>
+              <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                {[destinoExistente.color, destinoExistente.talla].filter(Boolean).join(' · ')}
+                {destinoExistente.diseno && ` · ${destinoExistente.diseno.nombre}`}
+              </p>
+              <p className="text-[10px] text-[var(--color-text-faint)] italic mt-0.5">
+                {ESTAMPADO_LABELS[tipoEstampado]}
+              </p>
+              <p className="text-[10px] font-mono text-[var(--color-text-faint)] mt-1">
+                Stock actual: {destinoExistente.stock_cache ?? 0} → {(destinoExistente.stock_cache ?? 0) + cantidad}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-blue-700 font-semibold mb-1 flex items-center gap-1">
+                <Sparkles size={10} /> A (se creará)
+              </p>
+              <p className="text-sm font-medium">{origen.producto?.nombre ?? '—'}</p>
+              <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                {[origen.color, origen.talla].filter(Boolean).join(' · ')}
+                {disenoSeleccionado && ` · ${disenoSeleccionado.nombre}`}
+              </p>
+              <p className="text-[10px] text-[var(--color-text-faint)] italic mt-0.5">
+                {ESTAMPADO_LABELS[tipoEstampado]}
+              </p>
+              <p className="text-[10px] text-[var(--color-text-faint)] mt-1">
+                Precio sugerido: {formatCOP(precioDestinoSugerido)}
+              </p>
+            </div>
+          )}
 
           <div className="pt-3 border-t border-[var(--color-border-light)] space-y-1.5 text-sm">
             <div className="flex justify-between text-[var(--color-text-muted)]">
@@ -319,6 +557,11 @@ export default function TransformacionNueva() {
           {cantidad > stockOrigen && stockOrigen > 0 && (
             <p className="text-xs font-semibold text-[var(--color-accent-red)]">
               Cantidad excede el stock disponible ({stockOrigen}).
+            </p>
+          )}
+          {dtgSinDiseno && (
+            <p className="text-xs font-semibold text-[var(--color-accent-red)]">
+              DTG requiere un diseño seleccionado.
             </p>
           )}
 
@@ -337,36 +580,61 @@ export default function TransformacionNueva() {
   )
 }
 
-function VariantePreview({
-  v,
+function CheckRow({
+  checked,
+  onChange,
   label,
-  stockOverride,
+  hint,
 }: {
-  v: VarianteConJoin | null
+  checked: boolean
+  onChange: (v: boolean) => void
   label: string
-  stockOverride?: number
+  hint: string
+}) {
+  return (
+    <label
+      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+        checked
+          ? 'bg-[var(--color-surface-2)] border-[var(--color-text)]'
+          : 'border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 accent-[var(--color-text)]"
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-[11px] text-[var(--color-text-label)] mt-0.5">{hint}</p>
+      </div>
+    </label>
+  )
+}
+
+function VariantePreview({
+  label,
+  origen,
+}: {
+  label: string
+  origen: VarianteConJoin | null
 }) {
   return (
     <div className="rounded-lg bg-[var(--color-surface-2)] p-3">
       <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-label)] font-semibold mb-1">
         {label}
       </p>
-      {v ? (
+      {origen ? (
         <>
           <p className="text-sm font-medium leading-tight">
-            {v.producto?.nombre ?? '—'}
+            {origen.producto?.nombre ?? '—'}
           </p>
           <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-            {[v.color, v.talla].filter(Boolean).join(' · ')}
-            {v.diseno && ` · ${v.diseno.nombre}`}
+            {[origen.color, origen.talla].filter(Boolean).join(' · ')}
           </p>
-          {v.estampado && v.estampado !== 'ninguno' && (
-            <p className="text-[10px] text-[var(--color-text-faint)] italic mt-0.5">
-              {ESTAMPADO_LABELS[v.estampado]}
-            </p>
-          )}
           <p className="text-[10px] font-mono text-[var(--color-text-faint)] mt-1">
-            Stock: {stockOverride ?? v.stock_cache ?? 0}
+            Stock: {origen.stock_cache ?? 0}
           </p>
         </>
       ) : (
