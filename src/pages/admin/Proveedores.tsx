@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Mail, Phone } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Pencil, Mail, Phone, Search } from 'lucide-react'
 import {
   PageHeader,
   Button,
+  Input,
   Table,
   THead,
   TH,
@@ -22,9 +23,19 @@ export default function Proveedores() {
   const { addToast } = useToast()
   const [rows, setRows] = useState<Proveedor[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Proveedor | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase()
+    if (!s) return rows
+    return rows.filter(p => {
+      const fields = [p.nombre, p.contacto_nombre ?? '', p.telefono ?? '', p.email ?? '', p.notas ?? '']
+      return fields.some(f => f.toLowerCase().includes(s))
+    })
+  }, [rows, search])
 
   useEffect(() => {
     let cancelled = false
@@ -61,6 +72,18 @@ export default function Proveedores() {
         }
       />
 
+      {rows.length > 0 && (
+        <div className="relative mb-4 max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por nombre, contacto, teléfono, email…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      )}
+
       {loading ? (
         <div className="card p-10 text-center text-sm text-[var(--color-text-label)]">
           Cargando…
@@ -88,7 +111,7 @@ export default function Proveedores() {
             </TR>
           </THead>
           <TBody>
-            {rows.map(p => (
+            {filtered.map(p => (
               <TR key={p.id}>
                 <TD className="font-medium">
                   {p.nombre}

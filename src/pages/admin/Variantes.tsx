@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Upload } from 'lucide-react'
-import { Constants, type Database } from '../../types/database'
-
-type TipoProducto = Database['public']['Enums']['tipo_producto']
+import { Search, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Constants } from '../../types/database'
 import {
   Button,
   EmptyState,
@@ -24,6 +22,41 @@ import { formatCOP } from '../../lib/utils'
 import { listVariantes, type VarianteConJoin } from '../../lib/queries/variantes'
 import { VarianteImporterModal } from '../../components/VarianteImporter'
 
+type SortKey =
+  | 'sku'
+  | 'producto'
+  | 'tipo'
+  | 'talla_color'
+  | 'diseno'
+  | 'costo'
+  | 'precio'
+  | 'margen'
+  | 'stock'
+type SortDir = 'asc' | 'desc'
+
+function sortValue(v: VarianteConJoin, key: SortKey): string | number {
+  switch (key) {
+    case 'sku':
+      return v.sku.toLowerCase()
+    case 'producto':
+      return (v.producto?.nombre ?? '').toLowerCase()
+    case 'tipo':
+      return v.producto?.tipo ?? ''
+    case 'talla_color':
+      return `${v.talla ?? ''} ${v.color ?? ''}`.toLowerCase()
+    case 'diseno':
+      return (v.diseno?.nombre ?? '').toLowerCase()
+    case 'costo':
+      return Number(v.costo_total ?? 0)
+    case 'precio':
+      return Number(v.precio_venta)
+    case 'margen':
+      return Number(v.margen_porcentaje ?? 0)
+    case 'stock':
+      return Number(v.stock_cache ?? 0)
+  }
+}
+
 export default function Variantes() {
   const [rows, setRows] = useState<VarianteConJoin[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,35 +65,78 @@ export default function Variantes() {
   const [stockBajo, setStockBajo] = useState(false)
   const [sinImagen, setSinImagen] = useState(false)
   const [includeInactive, setIncludeInactive] = useState(false)
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
+    key: 'sku',
+    dir: 'asc',
+  })
   const [openImport, setOpenImport] = useState(false)
   const { addToast } = useToast()
 
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey(k => k + 1)
 
+  // Carga todas las variantes una vez y filtra/ordena client-side para que
+  // el search y sort abarquen columnas joineadas (producto.nombre, diseño).
   useEffect(() => {
     let cancelled = false
-    listVariantes({
-      search: search || undefined,
-      tipoProducto: (tipo || undefined) as TipoProducto | undefined,
-      stockBajo,
-      sinImagen,
-      includeInactive,
-      limit: 200,
-    }).then(({ data, error }) => {
+    listVariantes({ limit: 1000, includeInactive: true }).then(({ data, error }) => {
       if (cancelled) return
       setLoading(false)
-      if (error) { addToast('error', error.message); return }
+      if (error) {
+        addToast('error', error.message)
+        return
+      }
       setRows((data as VarianteConJoin[]) ?? [])
     })
-    return () => { cancelled = true }
-  }, [search, tipo, stockBajo, sinImagen, includeInactive, reloadKey, addToast])
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey, addToast])
+
+  const filtered = useMemo(() => {
+    const s = search.trim().toLowerCase()
+    let list = rows
+    if (!includeInactive) list = list.filter(v => v.activo !== false)
+    if (tipo) list = list.filter(v => v.producto?.tipo === tipo)
+    if (stockBajo) list = list.filter(v => (v.stock_cache ?? 0) < 3)
+    if (sinImagen) list = list.filter(v => !v.imagen_url)
+    if (s) {
+      list = list.filter(v => {
+        const fields = [
+          v.sku,
+          v.producto?.nombre ?? '',
+          v.color ?? '',
+          v.talla ?? '',
+          v.diseno?.nombre ?? '',
+          v.notas ?? '',
+          v.estampado ?? '',
+        ]
+        return fields.some(f => f.toLowerCase().includes(s))
+      })
+    }
+    const sign = sort.dir === 'asc' ? 1 : -1
+    const sorted = [...list].sort((a, b) => {
+      const va = sortValue(a, sort.key)
+      const vb = sortValue(b, sort.key)
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sign
+      return String(va).localeCompare(String(vb)) * sign
+    })
+    return sorted
+  }, [rows, search, tipo, stockBajo, sinImagen, includeInactive, sort])
+
+  function toggleSort(key: SortKey) {
+    setSort(prev =>
+      prev.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' },
+    )
+  }
 
   return (
     <>
       <PageHeader
         title="Variantes"
-        subtitle={`${rows.length} SKU${rows.length === 1 ? '' : 's'}`}
+        subtitle={`${filtered.length} de ${rows.length} ${rows.length === 1 ? 'SKU' : 'SKUs'}`}
         actions={
           <Button variant="accent" onClick={() => setOpenImport(true)}>
             <Upload size={14} /> Importar CSV
@@ -69,11 +145,11 @@ export default function Variantes() {
       />
 
       <div className="flex flex-wrap gap-2 mb-4">
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[260px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-faint)]" />
           <Input
             className="pl-9"
-            placeholder="Buscar por SKU, color o talla…"
+            placeholder="Buscar por SKU, producto, color, talla, diseño, estampado…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -81,7 +157,9 @@ export default function Variantes() {
         <Select value={tipo} onChange={e => setTipo(e.target.value)} className="max-w-[180px]">
           <option value="">Todos los tipos</option>
           {Constants.public.Enums.tipo_producto.map(t => (
-            <option key={t} value={t}>{TIPO_PRODUCTO_LABELS[t]}</option>
+            <option key={t} value={t}>
+              {TIPO_PRODUCTO_LABELS[t]}
+            </option>
           ))}
         </Select>
         <label className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] px-2">
@@ -100,29 +178,33 @@ export default function Variantes() {
 
       {loading ? (
         <div className="card p-8 text-center text-sm text-[var(--color-text-label)]">Cargando…</div>
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
-          title="Sin variantes"
-          description="Cargá el inventario físico desde la ficha de producto o importando un CSV."
+          title={rows.length === 0 ? 'Sin variantes' : 'Sin resultados'}
+          description={
+            rows.length === 0
+              ? 'Cargá el inventario físico desde la ficha de producto o importando un CSV.'
+              : 'Ajustá el buscador o los filtros.'
+          }
         />
       ) : (
         <Table>
           <THead>
             <TR>
-              <TH>SKU</TH>
-              <TH>Producto</TH>
-              <TH>Tipo</TH>
-              <TH>Talla / Color</TH>
-              <TH>Diseño / Estampado</TH>
-              <TH align="right">Costo</TH>
-              <TH align="right">Precio</TH>
-              <TH align="right">Margen</TH>
-              <TH align="center">Stock</TH>
+              <SortableTH label="SKU" sortKey="sku" current={sort} onClick={toggleSort} />
+              <SortableTH label="Producto" sortKey="producto" current={sort} onClick={toggleSort} />
+              <SortableTH label="Tipo" sortKey="tipo" current={sort} onClick={toggleSort} />
+              <SortableTH label="Talla / Color" sortKey="talla_color" current={sort} onClick={toggleSort} />
+              <SortableTH label="Diseño / Estampado" sortKey="diseno" current={sort} onClick={toggleSort} />
+              <SortableTH label="Costo" sortKey="costo" current={sort} onClick={toggleSort} align="right" />
+              <SortableTH label="Precio" sortKey="precio" current={sort} onClick={toggleSort} align="right" />
+              <SortableTH label="Margen" sortKey="margen" current={sort} onClick={toggleSort} align="right" />
+              <SortableTH label="Stock" sortKey="stock" current={sort} onClick={toggleSort} align="center" />
               <TH>Estado</TH>
             </TR>
           </THead>
           <TBody>
-            {rows.map(v => (
+            {filtered.map(v => (
               <TR key={v.id}>
                 <TD className="font-mono text-xs">{v.sku}</TD>
                 <TD className="font-medium">
@@ -168,5 +250,44 @@ export default function Variantes() {
         onDone={reload}
       />
     </>
+  )
+}
+
+/**
+ * Header clickeable que dispara sort por esa key. Muestra flecha
+ * neutra / asc / desc según el estado actual.
+ */
+function SortableTH({
+  label,
+  sortKey,
+  current,
+  onClick,
+  align,
+}: {
+  label: ReactNode
+  sortKey: SortKey
+  current: { key: SortKey; dir: SortDir }
+  onClick: (key: SortKey) => void
+  align?: 'left' | 'right' | 'center'
+}) {
+  const active = current.key === sortKey
+  const Icon = active ? (current.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
+  return (
+    <TH align={align}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`inline-flex items-center gap-1 select-none hover:text-[var(--color-text)] transition-colors ${
+          active ? 'text-[var(--color-text)]' : ''
+        } ${align === 'right' ? 'ml-auto' : ''}`}
+        style={{ minHeight: 0 }}
+      >
+        <span>{label}</span>
+        <Icon
+          size={11}
+          className={active ? '' : 'opacity-40'}
+        />
+      </button>
+    </TH>
   )
 }
