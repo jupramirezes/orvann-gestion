@@ -21,8 +21,9 @@ import {
 import { useToast } from '../../components/Toast'
 import { formatCOP } from '../../lib/utils'
 import { createPedido } from '../../lib/queries/pedidos'
-import { listProveedores, type Proveedor } from '../../lib/queries/productos'
+import { listProveedores, type Proveedor } from '../../lib/queries/proveedores'
 import { listVariantes, type VarianteConJoin } from '../../lib/queries/variantes'
+import { ProveedorFormModal } from '../../components/admin/ProveedorFormModal'
 
 const itemSchema = z.object({
   variante_id: z.string().uuid().nullable(),
@@ -51,10 +52,11 @@ export default function PedidoNuevo() {
 
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [variantes, setVariantes] = useState<VarianteConJoin[]>([])
+  const [proveedorModalOpen, setProveedorModalOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([listProveedores(true), listVariantes({ limit: 500 })]).then(
+    Promise.all([listProveedores(), listVariantes({ limit: 500 })]).then(
       ([{ data: provs }, { data: vars }]) => {
         if (cancelled) return
         if (provs) setProveedores(provs)
@@ -64,7 +66,7 @@ export default function PedidoNuevo() {
     return () => { cancelled = true }
   }, [])
 
-  const { control, register, handleSubmit, watch, formState: { errors, isSubmitting } } =
+  const { control, register, setValue, handleSubmit, watch, formState: { errors, isSubmitting } } =
     useForm<PedidoForm>({
       resolver: zodResolver(pedidoSchema),
       defaultValues: {
@@ -118,12 +120,22 @@ export default function PedidoNuevo() {
         <div className="card p-5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Field label="Proveedor" required error={errors.proveedor_id?.message}>
-              <Select {...register('proveedor_id')}>
-                <option value="">— Seleccionar —</option>
-                {proveedores.map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </Select>
+              <div className="flex gap-2">
+                <Select {...register('proveedor_id')} className="flex-1">
+                  <option value="">— Seleccionar —</option>
+                  {proveedores.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => setProveedorModalOpen(true)}
+                  className="h-9 px-2.5 rounded-md border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)] text-xs flex items-center gap-1 shrink-0"
+                  title="Crear proveedor nuevo"
+                >
+                  <Plus size={12} /> Nuevo
+                </button>
+              </div>
             </Field>
             <Field label="Fecha de pedido" required error={errors.fecha_pedido?.message}>
               <Input type="date" {...register('fecha_pedido')} />
@@ -263,6 +275,15 @@ export default function PedidoNuevo() {
           </Button>
         </div>
       </form>
+
+      <ProveedorFormModal
+        open={proveedorModalOpen}
+        onClose={() => setProveedorModalOpen(false)}
+        onSaved={nuevo => {
+          setProveedores(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+          setValue('proveedor_id', nuevo.id, { shouldValidate: true })
+        }}
+      />
     </>
   )
 }

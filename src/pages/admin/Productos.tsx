@@ -27,10 +27,9 @@ import { TIPO_PRODUCTO_LABELS } from '../../lib/catalogo'
 import {
   createProducto,
   listProductos,
-  listProveedores,
   type ProductoConProveedor,
-  type Proveedor,
 } from '../../lib/queries/productos'
+import { listProveedores, type Proveedor } from '../../lib/queries/proveedores'
 
 const productoSchema = z.object({
   nombre: z.string().trim().min(2, 'Mínimo 2 caracteres').max(100),
@@ -55,7 +54,7 @@ export default function Productos() {
     let cancelled = false
     Promise.all([
       listProductos({ search: search || undefined, tipo: (tipo || undefined) as ProductoForm['tipo'] | undefined }),
-      listProveedores(true),
+      listProveedores(),
     ]).then(([{ data, error }, { data: provs }]) => {
       if (cancelled) return
       setLoading(false)

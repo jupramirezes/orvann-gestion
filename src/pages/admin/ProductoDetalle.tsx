@@ -34,10 +34,9 @@ import { formatCOP } from '../../lib/utils'
 import {
   getProducto,
   updateProducto,
-  listProveedores,
   type ProductoConProveedor,
-  type Proveedor,
 } from '../../lib/queries/productos'
+import { listProveedores, type Proveedor } from '../../lib/queries/proveedores'
 import { listDisenos, type Diseno } from '../../lib/queries/disenos'
 import {
   createVariante,
@@ -78,7 +77,7 @@ export default function ProductoDetalle() {
     Promise.all([
       getProducto(id),
       listVariantes({ productoId: id, includeInactive: true, limit: 200 }),
-      listProveedores(true),
+      listProveedores(),
       listDisenos({ includeInactive: false }),
       listParametrosCosto(),
     ]).then(([

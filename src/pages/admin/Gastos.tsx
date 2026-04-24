@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Filter, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Filter, Trash2, Pencil, Link2 } from 'lucide-react'
 import {
   PageHeader,
   KPICard,
@@ -47,6 +47,7 @@ const METODO_LABELS: Record<string, string> = {
 }
 
 export default function Gastos() {
+  const navigate = useNavigate()
   const { addToast } = useToast()
   const [gastos, setGastos] = useState<GastoConJoin[]>([])
   const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
@@ -241,10 +242,21 @@ export default function Gastos() {
           </THead>
           <TBody>
             {gastos.map(g => (
-              <TR key={g.id}>
+              <TR
+                key={g.id}
+                onClick={() => navigate(`/admin/gastos/${g.id}`)}
+              >
                 <TD>{formatDate(g.fecha)}</TD>
                 <TD className="max-w-[240px] truncate" title={g.descripcion ?? ''}>
-                  {g.descripcion ?? '—'}
+                  <span className="inline-flex items-center gap-1.5">
+                    {g.ref_pedido_id && (
+                      <Link2
+                        size={12}
+                        className="text-[var(--color-text-faint)] shrink-0"
+                      />
+                    )}
+                    <span className="truncate">{g.descripcion ?? '—'}</span>
+                  </span>
                 </TD>
                 <TD>
                   <span className="text-[var(--color-text-muted)]">
@@ -271,14 +283,30 @@ export default function Gastos() {
                   </div>
                 </TD>
                 <TD>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(g)}
-                    className="p-1.5 text-[var(--color-text-label)] hover:text-[var(--color-accent-red)] rounded-md"
-                    aria-label="Eliminar"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-1 justify-end">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation()
+                        navigate(`/admin/gastos/${g.id}`)
+                      }}
+                      className="p-1.5 text-[var(--color-text-label)] hover:text-[var(--color-text)] rounded-md"
+                      aria-label="Editar"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation()
+                        handleDelete(g)
+                      }}
+                      className="p-1.5 text-[var(--color-text-label)] hover:text-[var(--color-accent-red)] rounded-md"
+                      aria-label="Eliminar"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </TD>
               </TR>
             ))}

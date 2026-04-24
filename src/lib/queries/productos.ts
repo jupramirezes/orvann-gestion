@@ -4,6 +4,8 @@ import type { Database } from '../../types/database'
 export type Producto = Database['public']['Tables']['productos']['Row']
 export type ProductoInsert = Database['public']['Tables']['productos']['Insert']
 export type ProductoUpdate = Database['public']['Tables']['productos']['Update']
+// Proveedor y sus queries ahora viven en queries/proveedores.ts.
+// Este alias se mantiene aquí solo para compatibilidad del join.
 export type Proveedor = Database['public']['Tables']['proveedores']['Row']
 
 export type ProductoConProveedor = Producto & {
@@ -55,8 +57,3 @@ export async function toggleProducto(id: string, activo: boolean) {
   return updateProducto(id, { activo })
 }
 
-export async function listProveedores(onlyActive = true) {
-  let q = supabase.from('proveedores').select('*').order('nombre')
-  if (onlyActive) q = q.eq('activo', true)
-  return q
-}

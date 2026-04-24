@@ -15,6 +15,7 @@ import {
 } from '../../components/pos/MetodoPagoRow'
 import { ClienteSearchInput } from '../../components/pos/ClienteSearchInput'
 import { DescuentoModal } from '../../components/pos/DescuentoModal'
+import { POSFooterFixed } from '../../components/pos/POSFooterFixed'
 
 /**
  * Pantalla de cobro del POS. Orquesta pagos mixtos, cliente opcional,
@@ -175,7 +176,7 @@ export default function Cobro() {
 
   return (
     <div className="pb-40">
-      <div className="sticky top-14 z-20 bg-[var(--color-bg)] border-b border-[var(--color-border-light)] px-4 py-3">
+      <div className="bg-[var(--color-bg)] border-b border-[var(--color-border-light)] px-4 py-3">
         <Link
           to="/pos/carrito"
           className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]"
@@ -186,26 +187,46 @@ export default function Cobro() {
       </div>
 
       <div className="p-4 space-y-5">
-        {/* Resumen items */}
+        {/* Resumen items — card con detalle por ítem para revisar antes de cobrar */}
         <section>
           <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-label)] font-semibold mb-2">
-            Resumen
+            Resumen ({items.length} {items.length === 1 ? 'ítem' : 'ítems'})
           </p>
-          <ul className="text-sm space-y-1">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border-light)]">
             {items.map(it => (
-              <li key={it.varianteId} className="flex justify-between">
-                <span className="truncate mr-2">
-                  <span className="text-[var(--color-text-muted)] tabular-nums">
-                    {it.cantidad}×
-                  </span>{' '}
-                  {it.nombre}
-                </span>
-                <span className="tabular-nums shrink-0">
-                  {formatCOP(it.precioAplicado * it.cantidad)}
-                </span>
-              </li>
+              <div key={it.varianteId} className="flex gap-3 p-3">
+                <div className="w-12 h-12 rounded-md bg-[var(--color-surface-2)] overflow-hidden shrink-0 flex items-center justify-center">
+                  {it.imagenUrl ? (
+                    <img
+                      src={it.imagenUrl}
+                      alt={it.nombre}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[9px] font-mono text-[var(--color-text-faint)] p-1 text-center leading-tight">
+                      {it.sku}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium leading-tight truncate">
+                    {it.nombre}
+                  </p>
+                  <p className="text-[10px] text-[var(--color-text-faint)] font-mono mt-0.5 truncate">
+                    {it.sku}
+                  </p>
+                  <div className="flex items-center justify-between mt-1 text-xs">
+                    <span className="text-[var(--color-text-muted)] tabular-nums">
+                      {it.cantidad} × {formatCOP(it.precioAplicado)}
+                    </span>
+                    <span className="tabular-nums font-semibold">
+                      {formatCOP(it.precioAplicado * it.cantidad)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
 
         {/* Descuento */}
@@ -351,8 +372,8 @@ export default function Cobro() {
         </section>
       </div>
 
-      {/* CTA sticky */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] p-4 safe-bottom">
+      {/* CTA fijo centrado dentro del shell POS */}
+      <POSFooterFixed>
         <button
           type="button"
           onClick={handleConfirmar}
@@ -363,7 +384,7 @@ export default function Cobro() {
             ? 'Registrando…'
             : `Confirmar venta · ${formatCOP(total)}`}
         </button>
-      </div>
+      </POSFooterFixed>
 
       <DescuentoModal
         open={descuentoOpen}

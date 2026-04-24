@@ -19,7 +19,7 @@ import {
 import { useToast } from '../../components/Toast'
 import { formatCOP, formatDate } from '../../lib/utils'
 import { listPedidos, type PedidoConJoin } from '../../lib/queries/pedidos'
-import { listProveedores, type Proveedor } from '../../lib/queries/productos'
+import { listProveedores, type Proveedor } from '../../lib/queries/proveedores'
 
 type EstadoPago = Database['public']['Enums']['estado_pago_pedido']
 
@@ -44,7 +44,7 @@ export default function Pedidos() {
         desde,
         hasta,
       }),
-      listProveedores(true),
+      listProveedores(),
     ]).then(([{ data, error }, { data: provs }]) => {
       if (cancelled) return
       setLoading(false)

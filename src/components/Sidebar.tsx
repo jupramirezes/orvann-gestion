@@ -16,6 +16,7 @@ import {
   LogOut,
   Smartphone,
   ExternalLink,
+  Building2,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -85,6 +86,7 @@ const GROUPS: NavGroup[] = [
     label: 'Relaciones',
     items: [
       { to: '/admin/clientes', icon: Users, label: 'Clientes' },
+      { to: '/admin/proveedores', icon: Building2, label: 'Proveedores' },
     ],
   },
   {

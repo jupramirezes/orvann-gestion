@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react'
 import { useCarrito } from '../../hooks/useCarrito'
 import { formatCOP } from '../../lib/utils'
+import { POSFooterFixed } from '../../components/pos/POSFooterFixed'
 
 export default function Carrito() {
   const navigate = useNavigate()
@@ -9,7 +10,7 @@ export default function Carrito() {
 
   return (
     <div className="pb-32">
-      <div className="sticky top-14 z-20 bg-[var(--color-bg)] border-b border-[var(--color-border-light)] px-4 py-3 flex items-center justify-between">
+      <div className="bg-[var(--color-bg)] border-b border-[var(--color-border-light)] px-4 py-3 flex items-center justify-between">
         <Link
           to="/pos"
           className="inline-flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]"
@@ -113,8 +114,8 @@ export default function Carrito() {
             ))}
           </ul>
 
-          {/* Footer fixed con total + cobrar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] p-4 safe-bottom">
+          {/* Footer fijo con total + cobrar (centrado dentro del shell POS) */}
+          <POSFooterFixed>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs text-[var(--color-text-label)]">
@@ -131,7 +132,7 @@ export default function Carrito() {
             >
               Cobrar · {formatCOP(subtotal)}
             </button>
-          </div>
+          </POSFooterFixed>
         </>
       )}
     </div>
