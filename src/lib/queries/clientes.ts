@@ -3,6 +3,7 @@ import type { Database } from '../../types/database'
 
 export type Cliente = Database['public']['Tables']['clientes']['Row']
 export type ClienteInsert = Database['public']['Tables']['clientes']['Insert']
+export type ClienteUpdate = Database['public']['Tables']['clientes']['Update']
 
 /**
  * Busca clientes por teléfono (parcial). El matching ignora caracteres
@@ -25,4 +26,18 @@ export async function crearCliente(data: ClienteInsert) {
 
 export async function getCliente(id: string) {
   return supabase.from('clientes').select('*').eq('id', id).single()
+}
+
+export async function listClientes(opts?: { limit?: number }) {
+  const limit = opts?.limit ?? 500
+  return supabase
+    .from('clientes')
+    .select('*')
+    .order('num_compras_cache', { ascending: false, nullsFirst: false })
+    .order('nombre', { ascending: true })
+    .limit(limit)
+}
+
+export async function updateCliente(id: string, patch: ClienteUpdate) {
+  return supabase.from('clientes').update(patch).eq('id', id).select().single()
 }

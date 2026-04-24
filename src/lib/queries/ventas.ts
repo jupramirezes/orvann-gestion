@@ -158,3 +158,84 @@ export async function actualizarComprobantePago(
     .update({ comprobante_url: path })
     .eq('id', pagoId)
 }
+
+export type VentaConJoin = Venta & {
+  cliente: { id: string; nombre: string; telefono: string | null } | null
+  vendedor: { id: string; nombre: string } | null
+  items_count: { count: number }[]
+}
+
+/**
+ * Helper para extraer el conteo de items desde la columna joinada
+ * (Supabase devuelve [{count: N}] para agregados).
+ */
+export function itemsCount(v: Pick<VentaConJoin, 'items_count'>): number {
+  return v.items_count?.[0]?.count ?? 0
+}
+
+/**
+ * Lista ventas para el admin con filtros. Solo las completadas por
+ * default (las en estado='anulada' del flujo intermedio no interesan).
+ */
+export async function listVentas(opts?: {
+  desde?: string
+  hasta?: string
+  tipo?: Database['public']['Enums']['tipo_transaccion']
+  metodo?: MetodoPago
+  clienteId?: string
+  limit?: number
+  incluirTodosEstados?: boolean
+}) {
+  const limit = opts?.limit ?? 200
+  let q = supabase
+    .from('ventas')
+    .select(
+      `*,
+       cliente:clientes(id, nombre, telefono),
+       vendedor:profiles(id, nombre),
+       items_count:venta_items(count)`,
+      { count: 'exact' },
+    )
+    .order('fecha', { ascending: false })
+    .limit(limit)
+
+  if (!opts?.incluirTodosEstados) q = q.eq('estado', 'completada')
+  if (opts?.desde) q = q.gte('fecha', `${opts.desde}T00:00:00`)
+  if (opts?.hasta) q = q.lte('fecha', `${opts.hasta}T23:59:59`)
+  if (opts?.tipo) q = q.eq('tipo_transaccion', opts.tipo)
+  if (opts?.metodo) q = q.eq('metodo_pago', opts.metodo)
+  if (opts?.clienteId) q = q.eq('cliente_id', opts.clienteId)
+
+  return q
+}
+
+export async function getVentaDetalle(ventaId: string) {
+  const [ventaRes, itemsRes, pagosRes] = await Promise.all([
+    supabase
+      .from('ventas')
+      .select(
+        `*,
+         cliente:clientes(id, nombre, telefono),
+         vendedor:profiles(id, nombre)`,
+      )
+      .eq('id', ventaId)
+      .single(),
+    supabase
+      .from('venta_items')
+      .select(
+        `*, variante:variantes(id, sku, color, talla, producto:productos(id, nombre))`,
+      )
+      .eq('venta_id', ventaId),
+    supabase
+      .from('venta_pagos')
+      .select('*')
+      .eq('venta_id', ventaId)
+      .order('created_at', { ascending: true }),
+  ])
+  return {
+    venta: ventaRes.data,
+    items: itemsRes.data ?? [],
+    pagos: pagosRes.data ?? [],
+    error: ventaRes.error?.message ?? itemsRes.error?.message ?? pagosRes.error?.message ?? null,
+  }
+}
