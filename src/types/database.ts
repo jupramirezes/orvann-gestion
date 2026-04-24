@@ -382,6 +382,7 @@ export type Database = {
           monto_total: number
           notas: string | null
           pagador: Database["public"]["Enums"]["pagador_gasto"]
+          ref_pedido_id: string | null
         }
         Insert: {
           categoria_id: string
@@ -398,6 +399,7 @@ export type Database = {
           monto_total: number
           notas?: string | null
           pagador: Database["public"]["Enums"]["pagador_gasto"]
+          ref_pedido_id?: string | null
         }
         Update: {
           categoria_id?: string
@@ -414,6 +416,7 @@ export type Database = {
           monto_total?: number
           notas?: string | null
           pagador?: Database["public"]["Enums"]["pagador_gasto"]
+          ref_pedido_id?: string | null
         }
         Relationships: [
           {
@@ -421,6 +424,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gastos_ref_pedido_id_fkey"
+            columns: ["ref_pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos_proveedor"
             referencedColumns: ["id"]
           },
         ]
@@ -1213,6 +1223,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_corregir_stock_cache: { Args: never; Returns: number }
       fn_generar_sku: {
         Args: {
           p_color: string
@@ -1221,6 +1232,16 @@ export type Database = {
           p_talla: string
         }
         Returns: string
+      }
+      fn_reconciliar_stock: {
+        Args: never
+        Returns: {
+          diferencia: number
+          sku: string
+          stock_cache: number
+          stock_real: number
+          variante_id: string
+        }[]
       }
       fn_sku_slug: { Args: { n: number; txt: string }; Returns: string }
     }

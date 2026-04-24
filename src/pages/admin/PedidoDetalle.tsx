@@ -262,7 +262,11 @@ export default function PedidoDetalle() {
           if (!id) return
           const { error } = await marcarPagado(id, fecha)
           if (error) addToast('error', error.message)
-          else { addToast('success', 'Pedido marcado como pagado'); setOpenPago(false); reload() }
+          else {
+            addToast('success', 'Pedido pagado — gasto creado en categoría Mercancía')
+            setOpenPago(false)
+            reload()
+          }
         }}
       />
 
