@@ -17,6 +17,8 @@ const Variantes = lazy(() => import('./pages/admin/Variantes'))
 const Pedidos = lazy(() => import('./pages/admin/Pedidos'))
 const PedidoNuevo = lazy(() => import('./pages/admin/PedidoNuevo'))
 const PedidoDetalle = lazy(() => import('./pages/admin/PedidoDetalle'))
+const Gastos = lazy(() => import('./pages/admin/Gastos'))
+const GastoNuevo = lazy(() => import('./pages/admin/GastoNuevo'))
 
 // POS pages lazy — chunk separado para que el móvil no descargue código admin.
 const POSHome = lazy(() => import('./pages/pos/POSHome'))
@@ -85,7 +87,8 @@ export default function App() {
             <Route path="productos/:id" element={<ProductoDetalle />} />
             <Route path="variantes" element={<Variantes />} />
             <Route path="disenos" element={<Disenos />} />
-            <Route path="gastos" element={<Placeholder title="Gastos" subtitle="Distribución entre socios" tarea="Tarea 1.6" />} />
+            <Route path="gastos" element={<Gastos />} />
+            <Route path="gastos/nuevo" element={<GastoNuevo />} />
             <Route path="consignaciones" element={<Placeholder title="Consignaciones" subtitle="Caja → cuenta bancaria" tarea="Fase 2" />} />
             <Route path="clientes" element={<Placeholder title="Clientes" subtitle="Historial de compras" tarea="Tarea 1.7" />} />
             <Route path="config" element={<Placeholder title="Configuración" subtitle="Parámetros del sistema" tarea="Fase 2" />} />
