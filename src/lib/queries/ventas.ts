@@ -80,6 +80,14 @@ export async function createVentaCompleta(
   const metodoDominante: MetodoPago =
     input.pagos.length > 1 ? 'mixto' : input.pagos[0]!.metodo
 
+  // Si hay algún pago a crédito, la venta queda con saldo pendiente.
+  // saldo_pendiente = suma de los pagos con metodo='credito'.
+  // Los abonos posteriores (tabla venta_abonos) disminuyen ese saldo.
+  const saldoCredito = input.pagos
+    .filter(p => p.metodo === 'credito')
+    .reduce((s, p) => s + p.monto, 0)
+  const esCredito = saldoCredito > 0
+
   // 1) INSERT ventas (estado intermedio)
   const ventaPayload: VentaInsert = {
     tipo_transaccion: 'venta',
@@ -91,6 +99,8 @@ export async function createVentaCompleta(
     vendedor_id: input.vendedor_id ?? null,
     efectivo_recibido: input.efectivo_recibido ?? null,
     vueltas: input.vueltas ?? null,
+    es_credito: esCredito,
+    saldo_pendiente: saldoCredito,
     notas: input.notas ?? null,
     estado: 'anulada', // temporal — se completa al final
   }
@@ -210,7 +220,7 @@ export async function listVentas(opts?: {
 }
 
 export async function getVentaDetalle(ventaId: string) {
-  const [ventaRes, itemsRes, pagosRes] = await Promise.all([
+  const [ventaRes, itemsRes, pagosRes, abonosRes] = await Promise.all([
     supabase
       .from('ventas')
       .select(
@@ -231,11 +241,78 @@ export async function getVentaDetalle(ventaId: string) {
       .select('*')
       .eq('venta_id', ventaId)
       .order('created_at', { ascending: true }),
+    supabase
+      .from('venta_abonos')
+      .select('*')
+      .eq('venta_id', ventaId)
+      .order('fecha', { ascending: true }),
   ])
   return {
     venta: ventaRes.data,
     items: itemsRes.data ?? [],
     pagos: pagosRes.data ?? [],
-    error: ventaRes.error?.message ?? itemsRes.error?.message ?? pagosRes.error?.message ?? null,
+    abonos: abonosRes.data ?? [],
+    error: ventaRes.error?.message ?? itemsRes.error?.message ?? pagosRes.error?.message ?? abonosRes.error?.message ?? null,
   }
+}
+
+export type AbonoInput = {
+  venta_id: string
+  monto: number
+  metodo: MetodoPago
+  referencia?: string | null
+  fecha?: string
+  notas?: string | null
+}
+
+/**
+ * Registra un abono sobre una venta a crédito.
+ *   1. Valida que la venta tenga saldo_pendiente > 0.
+ *   2. INSERT en venta_abonos.
+ *   3. UPDATE ventas: saldo_pendiente -= monto; es_credito=false cuando
+ *      el saldo llega a 0 (±1 peso de tolerancia).
+ *
+ * Si el monto excede el saldo, se rechaza para evitar sobre-pago.
+ */
+export async function registrarAbono(input: AbonoInput): Promise<{ error: string | null }> {
+  const { data: venta, error: errV } = await supabase
+    .from('ventas')
+    .select('id, es_credito, saldo_pendiente')
+    .eq('id', input.venta_id)
+    .single()
+  if (errV || !venta) {
+    return { error: errV?.message ?? 'Venta no encontrada' }
+  }
+  const saldoActual = Number(venta.saldo_pendiente ?? 0)
+  if (saldoActual <= 0) {
+    return { error: 'Esta venta no tiene saldo pendiente' }
+  }
+  if (input.monto <= 0) {
+    return { error: 'El monto del abono debe ser mayor a cero' }
+  }
+  if (input.monto > saldoActual + 1) {
+    return { error: `El abono (${input.monto}) excede el saldo pendiente (${saldoActual})` }
+  }
+
+  const { error: errAbono } = await supabase.from('venta_abonos').insert({
+    venta_id: input.venta_id,
+    monto: input.monto,
+    metodo: input.metodo,
+    referencia: input.referencia ?? null,
+    fecha: input.fecha ?? new Date().toISOString().slice(0, 10),
+    notas: input.notas ?? null,
+  })
+  if (errAbono) return { error: errAbono.message }
+
+  const nuevoSaldo = Math.max(0, saldoActual - input.monto)
+  const { error: errUpd } = await supabase
+    .from('ventas')
+    .update({
+      saldo_pendiente: nuevoSaldo,
+      es_credito: nuevoSaldo > 0,
+    })
+    .eq('id', input.venta_id)
+  if (errUpd) return { error: errUpd.message }
+
+  return { error: null }
 }

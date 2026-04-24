@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, User } from 'lucide-react'
+import { ArrowLeft, User, CreditCard, AlertCircle } from 'lucide-react'
 import {
   PageHeader,
+  Button,
   StatusBadge,
   Table,
   THead,
@@ -12,9 +13,10 @@ import {
   TD,
 } from '../../components/ui'
 import { useToast } from '../../components/Toast'
-import { formatCOP, formatShortDateTime } from '../../lib/utils'
+import { formatCOP, formatDate, formatShortDateTime } from '../../lib/utils'
 import { getVentaDetalle } from '../../lib/queries/ventas'
 import { getComprobanteUrl } from '../../lib/storage'
+import { AbonoModal } from '../../components/admin/AbonoModal'
 import type { Database } from '../../types/database'
 
 type Venta = Database['public']['Tables']['ventas']['Row'] & {
@@ -33,6 +35,7 @@ type VentaItem = Database['public']['Tables']['venta_items']['Row'] & {
 }
 
 type VentaPago = Database['public']['Tables']['venta_pagos']['Row']
+type VentaAbono = Database['public']['Tables']['venta_abonos']['Row']
 
 export default function VentaDetalle() {
   const { id } = useParams<{ id: string }>()
@@ -40,12 +43,15 @@ export default function VentaDetalle() {
   const [venta, setVenta] = useState<Venta | null>(null)
   const [items, setItems] = useState<VentaItem[]>([])
   const [pagos, setPagos] = useState<VentaPago[]>([])
+  const [abonos, setAbonos] = useState<VentaAbono[]>([])
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [abonoOpen, setAbonoOpen] = useState(false)
 
   useEffect(() => {
     if (!id) return
     let cancelled = false
-    getVentaDetalle(id).then(({ venta, items, pagos, error }) => {
+    getVentaDetalle(id).then(({ venta, items, pagos, abonos, error }) => {
       if (cancelled) return
       setLoading(false)
       if (error) {
@@ -55,11 +61,12 @@ export default function VentaDetalle() {
       setVenta(venta as Venta)
       setItems((items ?? []) as VentaItem[])
       setPagos((pagos ?? []) as VentaPago[])
+      setAbonos((abonos ?? []) as VentaAbono[])
     })
     return () => {
       cancelled = true
     }
-  }, [id, addToast])
+  }, [id, reloadKey, addToast])
 
   if (loading) {
     return (
@@ -74,10 +81,13 @@ export default function VentaDetalle() {
   }
 
   const esDevolucion = venta.tipo_transaccion === 'devolucion'
+  const esCredito = !!venta.es_credito
+  const saldoPendiente = Number(venta.saldo_pendiente ?? 0)
   const subtotal = items.reduce(
     (s, i) => s + Number(i.subtotal ?? i.cantidad * Number(i.precio_unitario)),
     0,
   )
+  const totalAbonado = abonos.reduce((s, a) => s + Number(a.monto), 0)
 
   return (
     <div>
@@ -94,16 +104,52 @@ export default function VentaDetalle() {
         title={esDevolucion ? 'Devolución' : 'Venta'}
         subtitle={formatShortDateTime(venta.fecha)}
         actions={
-          esDevolucion && venta.venta_original_id ? (
-            <Link
-              to={`/admin/ventas/${venta.venta_original_id}`}
-              className="text-xs text-[var(--color-primary)] underline"
-            >
-              Ver venta original →
-            </Link>
-          ) : null
+          <div className="flex gap-2 items-center">
+            {esDevolucion && venta.venta_original_id && (
+              <Link
+                to={`/admin/ventas/${venta.venta_original_id}`}
+                className="text-xs text-[var(--color-primary)] underline"
+              >
+                Ver venta original →
+              </Link>
+            )}
+            {esCredito && saldoPendiente > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setAbonoOpen(true)}
+              >
+                <CreditCard size={14} /> Registrar abono
+              </Button>
+            )}
+          </div>
         }
       />
+
+      {esCredito && saldoPendiente > 0 && (
+        <div className="card p-4 mb-5 border border-amber-300 bg-amber-50 flex items-start gap-3">
+          <AlertCircle size={18} className="text-amber-700 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">
+              Venta a crédito — saldo pendiente {formatCOP(saldoPendiente)}
+            </p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Total {formatCOP(Number(venta.total ?? 0))} · Ya abonado{' '}
+              {formatCOP(totalAbonado)}. Registrá los abonos a medida que el
+              cliente pague.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {esCredito && saldoPendiente <= 0 && totalAbonado > 0 && (
+        <div className="card p-4 mb-5 border border-emerald-300 bg-emerald-50 flex items-start gap-3">
+          <CreditCard size={18} className="text-emerald-700 mt-0.5 shrink-0" />
+          <p className="text-sm font-semibold text-emerald-900">
+            Crédito cancelado — {formatCOP(totalAbonado)} abonados en total
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
         <div className="card p-5 lg:col-span-2">
@@ -235,7 +281,7 @@ export default function VentaDetalle() {
 
       {pagos.length > 0 && (
         <>
-          <h3 className="text-sm font-semibold mt-6 mb-3">Pagos</h3>
+          <h3 className="text-sm font-semibold mt-6 mb-3">Pagos iniciales</h3>
           <Table>
             <THead>
               <TR>
@@ -268,6 +314,46 @@ export default function VentaDetalle() {
           </Table>
         </>
       )}
+
+      {abonos.length > 0 && (
+        <>
+          <h3 className="text-sm font-semibold mt-6 mb-3">
+            Abonos posteriores al crédito
+          </h3>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Fecha</TH>
+                <TH>Método</TH>
+                <TH>Referencia</TH>
+                <TH align="right">Monto</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {abonos.map(a => (
+                <TR key={a.id}>
+                  <TD className="text-xs">{formatDate(a.fecha)}</TD>
+                  <TD className="font-mono text-xs">{a.metodo}</TD>
+                  <TD className="text-xs text-[var(--color-text-muted)]">
+                    {a.referencia ?? '—'}
+                  </TD>
+                  <TD align="right" className="font-semibold">
+                    {formatCOP(Number(a.monto))}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </>
+      )}
+
+      <AbonoModal
+        open={abonoOpen}
+        ventaId={venta.id}
+        saldoPendiente={saldoPendiente}
+        onClose={() => setAbonoOpen(false)}
+        onSaved={() => setReloadKey(k => k + 1)}
+      />
     </div>
   )
 }

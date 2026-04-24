@@ -39,6 +39,7 @@ export default function Ventas() {
   const [hasta, setHasta] = useState(() => new Date().toISOString().slice(0, 10))
   const [tipo, setTipo] = useState<TipoTransaccion | ''>('')
   const [metodo, setMetodo] = useState<MetodoPago | ''>('')
+  const [soloCredito, setSoloCredito] = useState(false)
 
   const filterOpts = useMemo(
     () => ({
@@ -66,17 +67,30 @@ export default function Ventas() {
     }
   }, [filterOpts, addToast])
 
+  const filtered = useMemo(
+    () => (soloCredito ? rows.filter(v => v.es_credito && Number(v.saldo_pendiente ?? 0) > 0) : rows),
+    [rows, soloCredito],
+  )
+
   const totales = useMemo(() => {
     const ventas = rows.filter(v => v.tipo_transaccion === 'venta')
     const devoluciones = rows.filter(v => v.tipo_transaccion === 'devolucion')
     const bruto = ventas.reduce((s, v) => s + Number(v.total ?? 0), 0)
     const devuelto = devoluciones.reduce((s, v) => s + Number(v.total ?? 0), 0)
+    const creditoPendiente = rows
+      .filter(v => v.es_credito && Number(v.saldo_pendiente ?? 0) > 0)
+      .reduce((s, v) => s + Number(v.saldo_pendiente ?? 0), 0)
+    const countCredito = rows.filter(
+      v => v.es_credito && Number(v.saldo_pendiente ?? 0) > 0,
+    ).length
     return {
       bruto,
       devuelto,
       neto: bruto - devuelto,
       countVentas: ventas.length,
       countDev: devoluciones.length,
+      creditoPendiente,
+      countCredito,
     }
   }, [rows])
 
@@ -85,6 +99,7 @@ export default function Ventas() {
     setHasta('')
     setTipo('')
     setMetodo('')
+    setSoloCredito(false)
   }
 
   return (
@@ -99,7 +114,7 @@ export default function Ventas() {
         }
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         <KPICard
           label="Ventas"
           value={formatCOP(totales.bruto, { short: true })}
@@ -127,39 +142,56 @@ export default function Ventas() {
           small
           subtitle="Solo ventas"
         />
+        <KPICard
+          label="Crédito pendiente"
+          value={formatCOP(totales.creditoPendiente, { short: true })}
+          small
+          subtitle={`${totales.countCredito} ventas sin saldar`}
+        />
       </div>
 
       {showFilters && (
-        <div className="card p-4 mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-          <div>
-            <label className="block text-xs text-[var(--color-text-label)] mb-1">Desde</label>
-            <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+        <div className="card p-4 mb-5 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-xs text-[var(--color-text-label)] mb-1">Desde</label>
+              <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-label)] mb-1">Hasta</label>
+              <Input type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-label)] mb-1">Tipo</label>
+              <Select value={tipo} onChange={e => setTipo(e.target.value as TipoTransaccion | '')}>
+                <option value="">Todos</option>
+                {Constants.public.Enums.tipo_transaccion.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--color-text-label)] mb-1">Método</label>
+              <Select value={metodo} onChange={e => setMetodo(e.target.value as MetodoPago | '')}>
+                <option value="">Todos</option>
+                {Constants.public.Enums.metodo_pago.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </Select>
+            </div>
+            <Button variant="ghost" size="sm" onClick={resetFiltros}>
+              Limpiar
+            </Button>
           </div>
-          <div>
-            <label className="block text-xs text-[var(--color-text-label)] mb-1">Hasta</label>
-            <Input type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--color-text-label)] mb-1">Tipo</label>
-            <Select value={tipo} onChange={e => setTipo(e.target.value as TipoTransaccion | '')}>
-              <option value="">Todos</option>
-              {Constants.public.Enums.tipo_transaccion.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--color-text-label)] mb-1">Método</label>
-            <Select value={metodo} onChange={e => setMetodo(e.target.value as MetodoPago | '')}>
-              <option value="">Todos</option>
-              {Constants.public.Enums.metodo_pago.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </Select>
-          </div>
-          <Button variant="ghost" size="sm" onClick={resetFiltros}>
-            Limpiar
-          </Button>
+          <label className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+            <input
+              type="checkbox"
+              checked={soloCredito}
+              onChange={e => setSoloCredito(e.target.checked)}
+              style={{ width: 14, height: 14 }}
+            />
+            Solo ventas con crédito pendiente
+          </label>
         </div>
       )}
 
@@ -167,7 +199,7 @@ export default function Ventas() {
         <div className="card p-10 text-center text-sm text-[var(--color-text-label)]">
           Cargando…
         </div>
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
           title="Sin ventas en el rango"
           description="Ajustá los filtros o esperá a que se registren ventas desde el POS."
@@ -183,10 +215,11 @@ export default function Ventas() {
               <TH>Método</TH>
               <TH align="center">Ítems</TH>
               <TH align="right">Total</TH>
+              <TH align="right">Saldo</TH>
             </TR>
           </THead>
           <TBody>
-            {rows.map(v => (
+            {filtered.map(v => (
               <TR key={v.id} onClick={() => navigate(`/admin/ventas/${v.id}`)}>
                 <TD className="text-xs">{formatShortDateTime(v.fecha)}</TD>
                 <TD>
@@ -197,6 +230,10 @@ export default function Ventas() {
                   ) : v.tipo_transaccion === 'cambio' ? (
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
                       Cambio
+                    </span>
+                  ) : v.es_credito && Number(v.saldo_pendiente ?? 0) > 0 ? (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                      A crédito
                     </span>
                   ) : (
                     <StatusBadge estado={v.estado ?? 'completada'} />
@@ -229,6 +266,15 @@ export default function Ventas() {
                 >
                   {v.tipo_transaccion === 'devolucion' ? '−' : ''}
                   {formatCOP(Number(v.total ?? 0))}
+                </TD>
+                <TD align="right" className="text-xs">
+                  {v.es_credito && Number(v.saldo_pendiente ?? 0) > 0 ? (
+                    <span className="font-semibold text-[var(--color-accent-orange)]">
+                      {formatCOP(Number(v.saldo_pendiente ?? 0))}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--color-text-faint)]">—</span>
+                  )}
                 </TD>
               </TR>
             ))}
