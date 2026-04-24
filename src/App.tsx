@@ -21,6 +21,7 @@ const PedidoDetalle = lazy(() => import('./pages/admin/PedidoDetalle'))
 // POS pages lazy — chunk separado para que el móvil no descargue código admin.
 const POSHome = lazy(() => import('./pages/pos/POSHome'))
 const Carrito = lazy(() => import('./pages/pos/Carrito'))
+const Cobro = lazy(() => import('./pages/pos/Cobro'))
 
 function PageFallback() {
   return (
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/pos" element={<POSLayout />}>
             <Route index element={<POSHome />} />
             <Route path="carrito" element={<Carrito />} />
+            <Route path="cobro" element={<Cobro />} />
           </Route>
         </Routes>
       </Suspense>
