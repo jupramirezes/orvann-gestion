@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal } from '../ui'
+import { MoneyInput } from '../MoneyInput'
 import { formatCOP } from '../../lib/utils'
 
 type DescuentoModalProps = {
@@ -85,19 +86,39 @@ function DescuentoModalBody({
 
         <div>
           <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
-            {tipo === 'monto' ? 'Descuento ($)' : 'Descuento (%)'}
+            Descuento ({tipo === 'monto' ? 'monto fijo' : 'porcentaje'})
           </label>
-          <input
-            type="number"
-            value={valor || ''}
-            onChange={e => setValor(Number(e.target.value) || 0)}
-            className="w-full h-11 px-3 text-base tabular-nums"
-            step={tipo === 'monto' ? 1000 : 1}
-            min="0"
-            max={tipo === 'porcentaje' ? 100 : subtotal}
-            inputMode="decimal"
-            autoFocus
-          />
+          {tipo === 'monto' ? (
+            <MoneyInput
+              value={valor}
+              onChange={setValor}
+              step="1000"
+              min="0"
+              max={subtotal}
+              autoFocus
+              className="h-11"
+            />
+          ) : (
+            <div className="flex items-stretch rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] h-11 overflow-hidden focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary-weak)]">
+              <input
+                type="number"
+                value={valor || ''}
+                onChange={e => setValor(Number(e.target.value) || 0)}
+                className="flex-1 min-w-0 px-3 bg-transparent outline-none text-sm tabular-nums text-right"
+                step="1"
+                min="0"
+                max="100"
+                inputMode="decimal"
+                autoFocus
+              />
+              <span
+                aria-hidden
+                className="inline-flex items-center px-2.5 text-[13px] font-medium text-[var(--color-text-label)] bg-[var(--color-surface-2)] border-l border-[var(--color-border)] select-none"
+              >
+                %
+              </span>
+            </div>
+          )}
         </div>
 
         <div>

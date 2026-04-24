@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Save } from 'lucide-react'
 import { Button, Input, Select, Textarea, Field } from '../ui'
+import { MoneyInput } from '../MoneyInput'
 import { formatCOP } from '../../lib/utils'
 import {
   listCategoriasGasto,
@@ -199,19 +200,12 @@ export function GastoForm({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Monto total" required>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
-                $
-              </span>
-              <Input
-                type="number"
-                value={form.monto_total || ''}
-                onChange={e => setField('monto_total', Number(e.target.value) || 0)}
-                className="pl-7 tabular-nums"
-                step="1000"
-                min="0"
-              />
-            </div>
+            <MoneyInput
+              value={form.monto_total}
+              onChange={v => setField('monto_total', v)}
+              step="1000"
+              min="0"
+            />
           </Field>
           <Field label="Pagador" required hint="Quién hizo el pago materialmente">
             <Select
@@ -260,24 +254,12 @@ export function GastoForm({
             <div className="grid grid-cols-2 gap-3">
               {(['kathe', 'andres', 'jp', 'orvann'] as const).map(k => (
                 <Field key={k} label={k.toUpperCase()}>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
-                      $
-                    </span>
-                    <Input
-                      type="number"
-                      value={form[`monto_${k}` as const] || ''}
-                      onChange={e =>
-                        setField(
-                          `monto_${k}` as const,
-                          Number(e.target.value) || 0,
-                        )
-                      }
-                      className="pl-7 tabular-nums"
-                      step="1000"
-                      min="0"
-                    />
-                  </div>
+                  <MoneyInput
+                    value={form[`monto_${k}` as const]}
+                    onChange={v => setField(`monto_${k}` as const, v)}
+                    step="1000"
+                    min="0"
+                  />
                 </Field>
               ))}
             </div>

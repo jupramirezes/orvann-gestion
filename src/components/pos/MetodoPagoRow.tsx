@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 import type { Database } from '../../types/database'
 import { FotoComprobanteUpload } from './FotoComprobanteUpload'
+import { MoneyInput } from '../MoneyInput'
 
 type MetodoPago = Database['public']['Enums']['metodo_pago']
 
@@ -57,22 +58,14 @@ export function MetodoPagoRow({
             </option>
           ))}
         </select>
-        <div className="relative w-[140px]">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
-            $
-          </span>
-          <input
-            type="number"
-            value={pago.monto || ''}
-            onChange={e => onChange({ ...pago, monto: Number(e.target.value) || 0 })}
-            placeholder="0"
-            className="w-full h-10 pl-6 pr-2 text-sm tabular-nums text-right"
-            step="1000"
-            min="0"
-            inputMode="decimal"
-            aria-label="Monto"
-          />
-        </div>
+        <MoneyInput
+          value={pago.monto}
+          onChange={v => onChange({ ...pago, monto: v })}
+          step="1000"
+          min="0"
+          aria-label="Monto"
+          className="w-[140px] h-10"
+        />
         {canRemove && (
           <button
             type="button"

@@ -16,6 +16,7 @@ import {
 import { ClienteSearchInput } from '../../components/pos/ClienteSearchInput'
 import { DescuentoModal } from '../../components/pos/DescuentoModal'
 import { POSFooterFixed } from '../../components/pos/POSFooterFixed'
+import { MoneyInput } from '../../components/MoneyInput'
 
 /**
  * Pantalla de cobro del POS. Orquesta pagos mixtos, cliente opcional,
@@ -303,23 +304,14 @@ export default function Cobro() {
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
               Efectivo entregado por el cliente
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)] font-semibold">
-                $
-              </span>
-              <input
-                type="number"
-                value={efectivoRecibido || ''}
-                onChange={e =>
-                  setEfectivoRecibido(Number(e.target.value) || 0)
-                }
-                placeholder={`${montoEfectivo}`}
-                className="w-full h-12 pl-7 pr-3 text-lg tabular-nums font-bold"
-                step="1000"
-                min="0"
-                inputMode="decimal"
-              />
-            </div>
+            <MoneyInput
+              value={efectivoRecibido}
+              onChange={setEfectivoRecibido}
+              placeholder={`${montoEfectivo}`}
+              step="1000"
+              min="0"
+              className="h-12"
+            />
             {vueltas > 0 && (
               <div className="mt-3 pt-3 border-t border-[var(--color-border-light)] flex items-center justify-between">
                 <span className="text-sm text-[var(--color-text-muted)]">

@@ -4,6 +4,7 @@ import { formatCOP } from '../../lib/utils'
 import { ESTAMPADO_LABELS } from '../../lib/catalogo'
 import { useCarrito } from '../../hooks/useCarrito'
 import { useToast } from '../Toast'
+import { MoneyInput } from '../MoneyInput'
 import type { VarianteConJoin } from '../../lib/queries/variantes'
 
 /**
@@ -119,18 +120,13 @@ function ModalBody({
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
               Precio de venta
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)] font-medium">$</span>
-              <input
-                type="number"
-                value={precio}
-                onChange={e => setPrecio(Number(e.target.value))}
-                className="w-full h-12 pl-7 pr-3 text-lg font-bold tabular-nums"
-                step="1000"
-                min="0"
-                inputMode="decimal"
-              />
-            </div>
+            <MoneyInput
+              value={precio}
+              onChange={setPrecio}
+              step="1000"
+              min="0"
+              className="h-12"
+            />
             {precio !== Number(variante.precio_venta) && (
               <p className="text-[11px] text-[var(--color-text-label)] mt-1">
                 Precio sugerido: {formatCOP(Number(variante.precio_venta))}

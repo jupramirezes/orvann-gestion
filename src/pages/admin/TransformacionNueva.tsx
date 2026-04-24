@@ -9,6 +9,7 @@ import {
   Textarea,
   Field,
 } from '../../components/ui'
+import { MoneyInput } from '../../components/MoneyInput'
 import { useToast } from '../../components/Toast'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCOP } from '../../lib/utils'
@@ -461,22 +462,15 @@ export default function TransformacionNueva() {
                   : 'Sugerido según la combinación marcada — editable'
               }
             >
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-label)]">
-                  $
-                </span>
-                <Input
-                  type="number"
-                  value={costoUnit || ''}
-                  onChange={e => {
-                    setCostoUnit(Number(e.target.value) || 0)
-                    setCostoTocado(true)
-                  }}
-                  className="pl-7 tabular-nums"
-                  step="500"
-                  min="0"
-                />
-              </div>
+              <MoneyInput
+                value={costoUnit}
+                onChange={v => {
+                  setCostoUnit(v)
+                  setCostoTocado(true)
+                }}
+                step="500"
+                min="0"
+              />
             </Field>
             <Field label="Notas">
               <Textarea

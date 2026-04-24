@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
+import { AdminRealtimeNotifier } from '../components/AdminRealtimeNotifier'
 
 export default function AdminLayout({ user }: { user: User | null }) {
   return (
@@ -13,6 +14,7 @@ export default function AdminLayout({ user }: { user: User | null }) {
           <Outlet />
         </main>
       </div>
+      <AdminRealtimeNotifier />
     </div>
   )
 }
