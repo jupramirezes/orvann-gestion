@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   LogOut,
+  Smartphone,
+  ExternalLink,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -130,6 +132,21 @@ function SidebarContent({ onClose, user }: { onClose?: () => void; user: User | 
             ))}
           </div>
         ))}
+
+        <div className="sb-group">
+          <div className="sb-group-label">POS</div>
+          <a
+            href="/pos"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            className="sb-item"
+          >
+            <Smartphone />
+            <span className="flex-1">Abrir POS</span>
+            <ExternalLink size={12} className="opacity-60" />
+          </a>
+        </div>
       </nav>
 
       <div className="sb-foot">
