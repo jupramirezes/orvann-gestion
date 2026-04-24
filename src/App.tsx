@@ -29,6 +29,7 @@ const Config = lazy(() => import('./pages/admin/Config'))
 const POSHome = lazy(() => import('./pages/pos/POSHome'))
 const Carrito = lazy(() => import('./pages/pos/Carrito'))
 const Cobro = lazy(() => import('./pages/pos/Cobro'))
+const Devoluciones = lazy(() => import('./pages/pos/Devoluciones'))
 
 function PageFallback() {
   return (
@@ -107,6 +108,7 @@ export default function App() {
             <Route index element={<POSHome />} />
             <Route path="carrito" element={<Carrito />} />
             <Route path="cobro" element={<Cobro />} />
+            <Route path="devoluciones" element={<Devoluciones />} />
           </Route>
         </Routes>
       </Suspense>

@@ -1,5 +1,5 @@
-import { ShoppingCart, LogOut } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { ShoppingCart, LogOut, RotateCcw } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useCarrito } from '../../hooks/useCarrito'
@@ -34,6 +34,14 @@ export function POSTopbar() {
       </div>
 
       <div className="flex items-center gap-1">
+        <Link
+          to="/pos/devoluciones"
+          className="p-2 rounded-md hover:bg-[var(--color-surface-hover)] transition-colors text-[var(--color-text-label)]"
+          aria-label="Devoluciones"
+          title="Devoluciones"
+        >
+          <RotateCcw size={18} />
+        </Link>
         <button
           type="button"
           onClick={() => navigate('/pos/carrito')}
