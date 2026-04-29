@@ -4,6 +4,8 @@ Documento vivo que lista los casos de prueba de Fase 1. Se actualiza al terminar
 
 Estados posibles: `pendiente` (no ejecutado aún) · `ok` · `fail` (con nota de qué falló) · `bloqueado` (esperando otra tarea o dato).
 
+**Última actualización**: 2026-04-29 (post Bloque B1 + RLS anon temporal). Los casos V-01, V-15, V-16 se ajustan porque ya no hay login obligatorio (modo anon temporal).
+
 ---
 
 ## Reglas del sistema de estampados (para validación)
@@ -142,45 +144,109 @@ Cada fila es un caso. `Tipo`: `manual` (tester humano en UI) · `integration` (S
 
 | # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
 |---|------|------|-----------------|-------|--------------------|--------|
-| V-01 | manual | Login POS móvil | Vendedor creado en Supabase | En celular abrir `/pos`, login | Redirige a grilla de productos | pendiente |
+| V-01 | manual | Acceso al POS sin login | Modo anon temporal activo (RLS abierta a anon) | En celular abrir `https://orvann-gestion.vercel.app/pos` | Llega directo a la grilla, sin pantalla de login | pendiente |
 | V-02 | manual | Instalar PWA | V-01 OK | "Agregar a pantalla de inicio" en Chrome/Safari | Instala, icono ORVANN visible | pendiente |
 | V-03 | manual | Grilla responsive | V-01 OK | Rotar/cambiar viewport | 2 columnas móvil, 4 tablet | pendiente |
 | V-04 | manual | Buscar variante | Variantes con SKU/nombre | Tipear en buscador | Filtra en vivo | pendiente |
 | V-05 | manual | Agregar al carrito | V-01 OK | Tap variante, "Agregar a venta" | Badge del carrito suma 1 | pendiente |
 | V-06 | manual | Pago efectivo con vueltas | Carrito con total 85000 | Método efectivo, efectivo_recibido=100000 | Vueltas=15000 correcto, guarda en `ventas.vueltas` | pendiente |
-| V-07 | manual | Pago mixto (3 métodos) | Carrito total 100000 | 30000 efectivo + 50000 transferencia (con foto) + 20000 datáfono | Se crean 3 filas en `venta_pagos`, foto visible en admin, total cuadra | pendiente |
+| V-07 | manual | Pago mixto (3 métodos) | Carrito total 100000 | 30000 efectivo + 50000 transferencia (con foto cámara o galería) + 20000 datáfono | Se crean 3 filas en `venta_pagos`, foto visible en admin con signed URL, total cuadra | pendiente |
 | V-08 | manual | Descuento global | Carrito total 100000 | Aplicar descuento 10000, motivo "cliente frecuente" | Total=90000, `descuento_motivo` guardado, venta_pagos valida 90000 | pendiente |
-| V-09 | manual | Devolución parcial | Venta V-07 existe | Menú "Devoluciones", buscar, seleccionar 1 de 2 items, confirmar | Nueva venta `tipo_transaccion='devolucion'`, stock del item devuelto sube | pendiente |
-| V-10 | manual | Cambio de talla | Venta con camisa M | "Cambio", devolver M, llevar L, diferencia de precio | 2 filas `ventas` vinculadas por `venta_original_id`, neto correcto | pendiente |
+| V-08b | manual | Descuento por porcentaje | Carrito total 100000 | DescuentoModal modo % con 15 + motivo | Total=85000, descuento_monto=15000 calculado | pendiente |
+| V-09 | manual | Devolución parcial | Venta V-07 existe | `/pos/devoluciones`, buscar por teléfono, seleccionar 1 de 2 items, confirmar | Nueva venta `tipo_transaccion='devolucion'`, stock del item devuelto sube | pendiente |
+| V-09b | manual | Devolución limitada por previas | V-09 OK + intentar devolver más unidades del mismo item | Modal muestra "ya devueltas: X" + stepper limitado a disponible | Sistema impide sobre-devolución | pendiente |
+| V-10 | manual | Cambio de talla | Venta con camisa M | Devolver M (parcial) + nueva venta L vinculada manualmente con `venta_original_id` | 2 filas `ventas` vinculadas, neto correcto | pendiente |
 | V-11 | integration | `fn_post_venta_item` emite movimiento correcto | V-07 OK | `select * from movimientos_inventario where referencia_id=<venta>` | N filas negativas (una por item) | pendiente |
 | V-12 | integration | Trigger devolución | V-09 OK | `select * from movimientos_inventario where referencia_tipo='devolucion'` | 1 fila positiva del item devuelto | pendiente |
-| V-13 | integration | `fn_validar_pagos_venta` rechaza venta descuadrada | — | Intentar venta con suma pagos < total y estado completada | raise exception | pendiente |
-| V-14 | manual | Stock cuadra tras 10 ventas | 10 ventas variadas | Conteo físico vs `stock_cache` | diferencia = 0 | pendiente |
+| V-13 | manual | Cliente obligatorio en crédito | Carrito con pago "A crédito" sin cliente | Intentar Confirmar | CTA bloqueado + mensaje rojo "Asociá un cliente antes de cobrar a crédito" | pendiente |
+| V-13b | manual | Cliente seleccionado en crédito | Crédito + cliente | Confirmar | Venta queda con `es_credito=true`, `saldo_pendiente=monto_credito` | pendiente |
+| V-14 | manual | Stock cuadra tras 10 ventas | 10 ventas variadas | Conteo físico vs `stock_cache` | diferencia = 0 (`fn_reconciliar_stock()` devuelve 0 filas) | pendiente |
 | V-15 | manual | Banner sin conexión | V-01 OK | Desactivar WiFi/datos | Banner rojo "Sin conexión", grilla sigue visible | pendiente |
 | V-16 | manual | Reconexión catálogo | V-15 OK | Reactivar red | Banner desaparece, venta se habilita | pendiente |
-| V-17 | manual | Cliente existente | Cliente creado desde otra venta | En cobro, buscar por teléfono | Autocompleta datos | pendiente |
-| V-18 | manual | Cliente nuevo al vuelo | — | En cobro, "Crear cliente" con nombre+tel | Cliente creado, asociado a la venta | pendiente |
-| V-19 | integration | Cache cliente actualizado | V-18 OK | `select total_comprado_cache, num_compras_cache from clientes where id=...` | Suma correcta | pendiente |
+| V-17 | manual | Cliente existente | Cliente creado desde otra venta | En cobro, buscar por teléfono | Lista resultados, click selecciona, toast "Cliente X asociado" | pendiente |
+| V-18 | manual | Cliente nuevo al vuelo | Tipear teléfono que no existe | Form amarillo aparece auto, escribir nombre, "Crear y asociar" | Cliente creado, card verde con ✓, toast de confirmación | pendiente |
+| V-19 | integration | Cache cliente actualizado | V-18 OK | `select total_comprado_cache, num_compras_cache from clientes where id=...` | Suma correcta tras venta | pendiente |
+| V-20 | manual | Notificación realtime al admin | Admin abierto en `/admin` + venta en POS | Cobrar venta en POS | Toast verde + beep + browser notification con monto | pendiente |
+| V-21 | manual | Layout POS centrado en PC | Abrir `/pos` en navegador desktop | Ver grilla | Container max-w-md centrado, no edge-to-edge | pendiente |
+
+### Tarea 1.5.1 — Cobro avanzado (abonos a crédito)
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| AB-01 | manual | Registrar abono parcial | Venta a crédito V-13b con saldo_pendiente | `/admin/ventas/:id` → "Registrar abono" → 30k efectivo | Saldo baja, banner sigue amarillo, fila aparece en "Abonos posteriores" | pendiente |
+| AB-02 | manual | Saldar crédito completo | Abono final hasta saldo=0 | Confirmar abono | Banner pasa a verde "Crédito cancelado", `es_credito=false` | pendiente |
+| AB-03 | manual | Bloqueo de sobre-abono | Saldo=10000, intentar abonar 50000 | Submit | Mensaje "El abono excede el saldo pendiente" | pendiente |
+| AB-04 | manual | KPI de crédito pendiente | Varias ventas con saldo | `/admin/ventas` | KPI "Crédito pendiente" suma los saldos abiertos | pendiente |
+
+### Tarea 1.5.2 — Devoluciones POS
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| D-01 | manual | Buscar venta por teléfono | Venta con cliente registrado | Topbar POS → ícono RotateCcw → escribir teléfono | Lista venta correspondiente | pendiente |
+| D-02 | manual | Devolución total | Venta con 2 items, ambos disponibles | Marcar todas las unidades + Confirmar | Stock vuelve completo, devolución registrada | pendiente |
+| D-03 | manual | Devolución parcial | Venta con 3 unidades, devolver solo 1 | Stepper +1 + Confirmar | Stock sube 1, devolución con monto parcial | pendiente |
+
+### Tarea 1.5.3 — Transformaciones
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| T-01 | manual | Transformación a destino existente | Variante destino ya creada | `/admin/transformaciones/nueva` → marcar checkboxes + diseño + cantidad → confirmar | Stock origen baja, destino existente sube | pendiente |
+| T-02 | manual | Transformación auto-crea destino | Combinación nueva (no existe variante) | Mismo flujo + nueva combinación | Variante destino se crea con SKU automático, costo calculado, precio sugerido = origen + costo estampado | pendiente |
+| T-03 | manual | DTG sin diseño bloquea | Marcar DTG sin elegir diseño | Intentar guardar | CTA bloqueado con mensaje "DTG requiere un diseño seleccionado" | pendiente |
+| T-04 | manual | Conservación de unidades | Origen 10, transformar 3 | Confirmar | Origen=7, destino=+3 (total sigue 10) | pendiente |
 
 ### Tarea 1.6 — Gastos
 
 | # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
 |---|------|------|-----------------|-------|--------------------|--------|
-| G-01 | manual | Crear gasto equitativo 90k | Categoría Arriendo existe | Form: monto 900000, equitativa, pagador ORVANN | monto_kathe=300000, monto_andres=300000, monto_jp=300000 | pendiente |
+| G-01 | manual | Crear gasto equitativo 90k | Categoría Arriendo existe | Form: monto 900000, equitativa, pagador ORVANN | monto_kathe=300000, monto_andres=300000, monto_jp=300000 (con resto a JP) | pendiente |
 | G-02 | manual | Crear gasto asignado a KATHE | — | Form: monto 150000, asignada, pagador KATHE | monto_kathe=150000, otros=0 | pendiente |
 | G-03 | manual | Crear gasto ORVANN | — | Form: monto 50000, orvann, pagador ORVANN | monto_orvann=50000, socios=0 | pendiente |
-| G-04 | manual | Validación suma custom | — | Form custom con montos que no cuadran | Zod impide submit con mensaje claro | pendiente |
-| G-05 | manual | Listado con totales al pie | G-01, G-02, G-03 OK | Ver listado | Totales por socio y ORVANN correctos | pendiente |
+| G-04 | manual | Validación suma custom | — | Form custom con montos que no cuadran | Botón Guardar deshabilitado + alerta "Falta/Sobra X" | pendiente |
+| G-05 | manual | Listado con KPIs por socio | G-01, G-02, G-03 OK | Ver listado | KPICards con totales por socio y ORVANN correctos | pendiente |
 | G-06 | manual | Filtros por rango y categoría | Gastos variados | Filtrar por mes y categoría | Tabla actualiza | pendiente |
-| G-07 | manual | Export CSV | G-05 OK | Click "Exportar CSV" | Download con datos filtrados | pendiente |
+| G-07 | manual | Sort por header | Gastos variados | Click en headers Fecha, Monto, Categoría | Asc/desc visual + reordenamiento client-side | pendiente |
+| G-08 | manual | Editar gasto desde fila | G-01 OK | Click en fila → `/admin/gastos/:id` → cambiar pagador → Guardar | Cambios persisten + toast | pendiente |
+| G-09 | manual | Eliminar gasto desde fila | G-01 OK | Click ícono trash en fila | Confirmación nativa, gasto removido del listado | pendiente |
 
-### Tarea 1.7 — Clientes
+### Tarea 1.6b — Pedido pagado → Gasto auto
 
 | # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
 |---|------|------|-----------------|-------|--------------------|--------|
-| K-01 | manual | Listar clientes | Clientes creados desde POS | `/admin/clientes` | Tabla con total_comprado, num_compras | pendiente |
-| K-02 | manual | Detalle cliente con historial | K-01 OK | Click cliente | Datos + tabla de ventas del cliente | pendiente |
-| K-03 | manual | Buscar por teléfono | — | Tipear parte de un tel | Filtra correctamente | pendiente |
+| PG-01 | manual | Marcar pedido pagado crea gasto | Pedido con total > 0, no pagado | `/admin/pedidos/:id` → "Marcar pagado" + fecha | Toast "gasto creado en categoría Mercancía", fila nueva en `/admin/gastos` con icono Link2 | pendiente |
+| PG-02 | manual | Gasto auto editable | PG-01 OK | Editar gasto creado: cambiar pagador a JP, distribución a "asignada" | Cambios persisten | pendiente |
+| PG-03 | integration | Idempotencia | PG-01 OK + intentar marcar pagado de nuevo | UPDATE estado_pago | No se duplica el gasto (1 sola fila con ref_pedido_id) | pendiente |
+
+### Tarea 1.7 — Clientes admin + ventas admin
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| K-01 | manual | Listar clientes | Clientes creados desde POS | `/admin/clientes` | Tabla con total_comprado, num_compras, primera_compra | pendiente |
+| K-02 | manual | Detalle cliente con historial | K-01 OK | Click cliente | KPIs + tabla con ventas/devoluciones del cliente | pendiente |
+| K-03 | manual | Buscar cliente | Múltiples clientes | Tipear nombre/teléfono/email | Filtra correctamente | pendiente |
+| VA-01 | manual | Listado de ventas con filtros | Varias ventas | `/admin/ventas` con filtros tipo, método, rango | KPIs (Bruto, Devuelto, Neto, Ticket, Crédito) actualizan | pendiente |
+| VA-02 | manual | Detalle de venta con pagos | Venta V-07 OK | Click fila | Resumen + items + pagos con montos correctos | pendiente |
+| VA-03 | manual | Comprobante visible vía signed URL | Pago con foto V-07 | Click "Ver foto" | Abre signed URL en pestaña nueva (1h vigencia) | pendiente |
+| VA-04 | manual | Link a venta original desde devolución | V-09 OK | Abrir devolución en `/admin/ventas/:id` | Header tiene link "Ver venta original →" | pendiente |
+
+### Tarea 1.6/Sistema — Configuración
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| CF-01 | manual | Editar parámetro de costo | `/admin/config` | Cambiar `bolsa` de 1000 a 1500 → Guardar | Toast + valor persiste; aviso amarillo de "solo afecta variantes nuevas" | pendiente |
+| CF-02 | manual | Variantes existentes no se recalculan | CF-01 OK | Ver variante creada antes de cambio | costo_adicional sigue con bolsa=1000 (fotografía) | pendiente |
+| CF-03 | manual | Variantes nuevas usan parámetro nuevo | CF-01 OK | Crear variante nueva | costo_adicional incluye bolsa=1500 | pendiente |
+
+### Tarea 1.3c — Importer mejorado (B1)
+
+| # | Tipo | Caso | Pre-condiciones | Pasos | Resultado esperado | Estado |
+|---|------|------|-----------------|-------|--------------------|--------|
+| IM-01 | manual | Auto-detect header en fila > 1 | xlsx con totales en fila 0 + headers en fila 1 | Importar xlsx | Card azul "Encabezados detectados en fila 2" | pendiente |
+| IM-02 | manual | Conversión SI/NO de estampado | xlsx con 3 cols SI/NO | Importar | Card azul "Columnas SI/NO convertidas a estampado", filas con combinaciones correctas | pendiente |
+| IM-03 | manual | Consolidación de duplicados | xlsx con filas repetidas | Importar | Card azul "X filas crudas → Y consolidadas", cantidades sumadas | pendiente |
+| IM-04 | manual | Variantes sin costo | xlsx con costo_unit vacío en algunas filas | Importar | KPI naranja "Sin costo: N", variantes creadas con costo_base=0 | pendiente |
+| IM-05 | manual | Filtro "Sin costo" en Variantes | IM-04 OK | `/admin/variantes` → checkbox "Sin costo definido" | Solo aparecen variantes con costo_base=0, badge rojo "Sin costo" en columna | pendiente |
+| IM-06 | manual | SKU sin sufijos -2/-3 | xlsx con diseños similares (Gris Claro, Gris Oscuro) | Importar | SKUs distintos sin sufijos numéricos (resuelve C-29) | pendiente |
 
 ---
 
@@ -232,10 +298,14 @@ Estos escenarios cubren el flujo completo. Se ejecutan al cerrar Fase 1:
 
 ## Pruebas de seguridad
 
+⚠️ **Estado actual (2026-04-29)**: RLS abierto a `anon` (migración 017). Cualquiera con la URL ve y modifica todo. Esto es **temporal** mientras JP usa solo y testea. Antes de invitar vendedores reales hay que cerrar (Bloque B4 del plan 06).
+
 - [ ] La anon key **no** está commiteada al repo (ver `.gitignore` cubre `.env.local`).
 - [ ] La service_role key **no** se usa en código cliente.
-- [ ] Policies RLS abiertas F1 sólo permiten a `authenticated` (no `anon`).
-- [ ] Al cerrar F2/F3, vendedor no puede SELECT costos/gastos (re-ejecutar esta checklist).
+- [x] Policies RLS abiertas F1 a `authenticated` y `anon` (modo público temporal).
+- [ ] **Bloque B4 — antes de invitar vendedores**: cerrar `*_open_anon` y reemplazar `*_open_f1` por policies según `profiles.rol` (admin/vendedor).
+- [ ] Vendedor no puede SELECT costos/gastos.
+- [ ] Vendedor no puede SELECT cierres_caja, consignaciones, parametros_costo.
 
 ---
 

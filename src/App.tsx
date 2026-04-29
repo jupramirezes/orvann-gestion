@@ -1,9 +1,8 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase, isSupabaseReady } from './lib/supabase'
 import { ToastProvider } from './components/Toast'
-import Login from './components/Login'
 import AdminLayout from './layouts/AdminLayout'
 import POSLayout from './layouts/POSLayout'
 
@@ -45,8 +44,8 @@ function PageFallback() {
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
-  // Si Supabase no está configurado, no hay loading (modo dev sin auth).
   const [loading, setLoading] = useState<boolean>(isSupabaseReady)
+  const anonAttempted = useRef(false)
 
   useEffect(() => {
     if (!isSupabaseReady) return
@@ -63,6 +62,18 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Sin login: si no hay sesión, intentar signInAnonymously una sola vez.
+  // Si Supabase tiene "Anonymous sign-ins" habilitado, devuelve un user
+  // con id válido y todo opera. Si no está habilitado, igual la app
+  // arranca porque las RLS están abiertas a anon (migración 017).
+  useEffect(() => {
+    if (loading || user || !isSupabaseReady || anonAttempted.current) return
+    anonAttempted.current = true
+    supabase.auth.signInAnonymously().catch(() => {
+      // Anonymous sign-ins no habilitados → seguimos con el cliente anon.
+    })
+  }, [loading, user])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
@@ -75,10 +86,6 @@ export default function App() {
         </div>
       </div>
     )
-  }
-
-  if (isSupabaseReady && !user) {
-    return <Login />
   }
 
   return (
