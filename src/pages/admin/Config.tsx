@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save, AlertCircle } from 'lucide-react'
+import { Save, AlertCircle, Upload } from 'lucide-react'
 import {
   PageHeader,
   Button,
@@ -18,6 +18,7 @@ import {
   updateParametro,
   type ParametroCosto,
 } from '../../lib/queries/parametros'
+import { CotizadorImporterModal } from '../../components/CotizadorImporter'
 
 const CONCEPTO_LABELS: Record<string, string> = {
   etiqueta_espalda: 'Etiqueta espalda',
@@ -39,6 +40,7 @@ export default function Config() {
   const [rows, setRows] = useState<ParametroCosto[]>([])
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+  const [openCotizador, setOpenCotizador] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -61,6 +63,11 @@ export default function Config() {
       <PageHeader
         title="Configuración"
         subtitle="Parámetros de costo y opciones del sistema"
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => setOpenCotizador(true)}>
+            <Upload size={14} /> Aplicar costos del Cotizador
+          </Button>
+        }
       />
 
       <section className="mb-5">
@@ -111,6 +118,12 @@ export default function Config() {
           </Table>
         )}
       </section>
+
+      <CotizadorImporterModal
+        open={openCotizador}
+        onClose={() => setOpenCotizador(false)}
+        onDone={() => setReloadKey(k => k + 1)}
+      />
     </div>
   )
 }

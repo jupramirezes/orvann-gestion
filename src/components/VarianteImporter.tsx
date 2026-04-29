@@ -149,18 +149,16 @@ export function VarianteImporterModal({
               </div>
             )}
 
-            <div className="card overflow-x-auto max-h-[260px]">
-              <table className="w-full text-xs">
-                <thead className="bg-[var(--color-surface-2)] sticky top-0">
+            <div className="card overflow-x-auto max-h-[280px]">
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-[var(--color-surface-2)] sticky top-0 z-10">
                   <tr>
                     {preview.headers.map((h, i) => (
-                      <th key={i} className="px-3 py-2 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)]">
+                      <th
+                        key={i}
+                        className="px-3 py-2.5 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide whitespace-nowrap min-w-[80px]"
+                      >
                         {h || '—'}
-                        {preview.originalHeaders[i] && preview.originalHeaders[i] !== h && (
-                          <span className="block text-[9px] font-normal text-[var(--color-text-faint)] normal-case">
-                            de "{preview.originalHeaders[i]}"
-                          </span>
-                        )}
                       </th>
                     ))}
                   </tr>
@@ -169,15 +167,17 @@ export function VarianteImporterModal({
                   {preview.rows.slice(0, 10).map((r, i) => (
                     <tr key={i}>
                       {preview.headers.map(h => (
-                        <td key={h} className="px-3 py-1.5 text-[var(--color-text-muted)]">{r[h]}</td>
+                        <td key={h} className="px-3 py-2 text-[var(--color-text-muted)] whitespace-nowrap">
+                          {r[h] || <span className="text-[var(--color-text-faint)]">—</span>}
+                        </td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
               {preview.rows.length > 10 && (
-                <p className="text-[10px] text-center text-[var(--color-text-faint)] py-2">
-                  … y {preview.rows.length - 10} filas más
+                <p className="text-[10px] text-center text-[var(--color-text-faint)] py-2 border-t border-[var(--color-border-light)]">
+                  … y {preview.rows.length - 10} variantes más
                 </p>
               )}
             </div>

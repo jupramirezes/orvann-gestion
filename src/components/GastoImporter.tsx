@@ -135,31 +135,35 @@ export function GastoImporterModal({
               </div>
             )}
 
-            <div className="card overflow-x-auto max-h-[260px]">
-              <table className="w-full text-xs">
-                <thead className="bg-[var(--color-surface-2)] sticky top-0">
+            <div className="card overflow-x-auto max-h-[280px]">
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-[var(--color-surface-2)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)]">Fecha</th>
-                    <th className="px-3 py-2 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)]">Categoría</th>
-                    <th className="px-3 py-2 text-right text-[10px] uppercase font-semibold text-[var(--color-text-label)]">Monto</th>
-                    <th className="px-3 py-2 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)]">Distribución</th>
-                    <th className="px-3 py-2 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)]">Pagador</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide whitespace-nowrap">Fecha</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide">Categoría</th>
+                    <th className="px-3 py-2.5 text-right text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide whitespace-nowrap">Monto</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide whitespace-nowrap">Distribución</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] uppercase font-semibold text-[var(--color-text-label)] tracking-wide whitespace-nowrap">Pagador</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-light)]">
                   {preview.gastos.slice(0, 10).map((g, i) => (
                     <tr key={i}>
-                      <td className="px-3 py-1.5 text-[var(--color-text-muted)] font-mono">{g.fecha}</td>
-                      <td className="px-3 py-1.5 text-[var(--color-text-muted)]">{g.categoria_nombre}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{formatCOP(g.monto_total)}</td>
-                      <td className="px-3 py-1.5 text-[var(--color-text-muted)]">{g.distribucion}</td>
-                      <td className="px-3 py-1.5 text-[var(--color-text-muted)] font-mono text-[10px]">{g.pagador}</td>
+                      <td className="px-3 py-2 text-[var(--color-text-muted)] font-mono whitespace-nowrap">{g.fecha}</td>
+                      <td className="px-3 py-2 text-[var(--color-text-muted)]">{g.categoria_nombre}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold whitespace-nowrap">{formatCOP(g.monto_total)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">
+                          {g.distribucion}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-[var(--color-text-muted)] font-mono text-[10px] whitespace-nowrap">{g.pagador}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {preview.gastos.length > 10 && (
-                <p className="text-[10px] text-center text-[var(--color-text-faint)] py-2">
+                <p className="text-[10px] text-center text-[var(--color-text-faint)] py-2 border-t border-[var(--color-border-light)]">
                   … y {preview.gastos.length - 10} gastos más
                 </p>
               )}

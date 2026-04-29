@@ -177,7 +177,8 @@ export async function parseGastosFile(file: File): Promise<GastoParsedSheet> {
     rawRows.push(row)
   }
 
-  // Cargar categorías de BD para matching
+  // Cargar categorías de BD para matching. Construimos un map normalizado
+  // + aliases comunes del Sheet (singular vs plural, paréntesis con detalles).
   const { data: categoriasDB } = await supabase
     .from('categorias_gasto')
     .select('id, nombre')
@@ -185,6 +186,39 @@ export async function parseGastosFile(file: File): Promise<GastoParsedSheet> {
   const catMap = new Map<string, string>()
   for (const c of categoriasDB ?? []) {
     catMap.set(normalizeHeader(c.nombre), c.id)
+  }
+
+  // Aliases manuales: nombre del Sheet → nombre canónico de BD
+  const CATEGORIA_ALIASES: Record<string, string> = {
+    'ilustraciones_diseno': 'ilustraciones_disenos',          // singular → plural
+    'ilustracion_diseno': 'ilustraciones_disenos',
+    'ilustracion': 'ilustraciones_disenos',
+    'diseno': 'ilustraciones_disenos',
+    'otro': 'otros',                                           // singular → plural
+    'empaque_bolsas_etiquetas': 'empaque',                    // con paréntesis
+    'empaque_bolsas': 'empaque',
+    'empaque_etiquetas': 'empaque',
+    'servicios_agua_luz_gas': 'servicios_agua_luz_gas',       // ya match
+    'servicios': 'servicios_agua_luz_gas',
+    'comision_datafono': 'comisiones_datafono',
+    'aseo_mantenimiento': 'aseo_mantenimiento',
+    'aseo': 'aseo_mantenimiento',
+    'mantenimiento': 'aseo_mantenimiento',
+    'digitales': 'digitales_shopify_workspace',
+    'shopify': 'digitales_shopify_workspace',
+    'workspace': 'digitales_shopify_workspace',
+    'dotacion': 'dotacion_local',
+    'mercancia': 'mercancia',                                  // exacto
+  }
+  function resolveCategoria(rawNorm: string): string | undefined {
+    if (catMap.has(rawNorm)) return catMap.get(rawNorm)
+    const alias = CATEGORIA_ALIASES[rawNorm]
+    if (alias && catMap.has(alias)) return catMap.get(alias)
+    // Match parcial: si el normalizado del Sheet empieza con un nombre de BD
+    for (const [bdNorm, id] of catMap) {
+      if (rawNorm.startsWith(bdNorm) || bdNorm.startsWith(rawNorm)) return id
+    }
+    return undefined
   }
 
   const saltadas: Array<{ row: number; reason: string }> = []
@@ -234,7 +268,7 @@ export async function parseGastosFile(file: File): Promise<GastoParsedSheet> {
     }
 
     const catKey = normalizeHeader(parsed.categoria)
-    const categoria_id = catMap.get(catKey)
+    const categoria_id = resolveCategoria(catKey)
     if (!categoria_id) {
       categoriasSinMatch.add(parsed.categoria)
       saltadas.push({ row: rowIdx, reason: `Categoría "${parsed.categoria}" no existe en BD` })
