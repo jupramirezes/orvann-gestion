@@ -37,7 +37,10 @@
       "Bash(awk 'BEGIN{n=0; f=1; fname=sprintf\\(\"tmp-import/chunk-%d.sql\", f\\)} /^with prod as/{n++; if \\(n > 10\\) {n=1; f++; fname=sprintf\\(\"tmp-import/chunk-%d.sql\", f\\)}} {print > fname}' tmp-import/variantes-only.sql)",
       "Bash(git rm *)",
       "Bash(ipconfig)",
-      "Bash(xargs wc *)"
+      "Bash(xargs wc *)",
+      "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_teams",
+      "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_projects",
+      "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_deployments"
     ]
   }
 }

@@ -24,6 +24,8 @@ export type ImportResult = {
   failed: number
   errors: Array<{ row: number; error: string; raw: Record<string, string> }>
   created: Array<{ sku: string; productoNombre: string }>
+  /** Variantes importadas que quedaron con costo_base = 0 (revisar después). */
+  sinCosto: number
 }
 
 export const EXPECTED_COLUMNS = [
@@ -39,6 +41,27 @@ export const EXPECTED_COLUMNS = [
   'zona',
   'observacion',
 ] as const
+
+/**
+ * Columnas SI/NO de estampado en el formato físico que usa JP en el xlsx
+ * de inventario. Si las 3 están presentes se generan automáticamente
+ * el campo `estampado` derivando la combinación marcada.
+ */
+const ESTAMPADO_COLS = {
+  punto: 'estampado_punto_corazon',
+  bordado: 'bordado_punto_corazon',
+  completo: 'estampado_completo',
+} as const
+
+const ESTAMPADO_ALIASES: Record<string, keyof typeof ESTAMPADO_COLS> = {
+  estampado_punto_corazon: 'punto',
+  punto_corazon_estampado: 'punto',
+  bordado_punto_corazon: 'bordado',
+  punto_corazon_bordado: 'bordado',
+  estampado_completo: 'completo',
+  completo_dtg: 'completo',
+  estampado_dtg: 'completo',
+}
 
 /** Aliases comunes: acepta también sin guión bajo y sinónimos razonables. */
 const HEADER_ALIASES: Record<string, string> = {
@@ -85,6 +108,92 @@ function canonicalHeader(raw: string): string {
   return HEADER_ALIASES[normalized] ?? normalized
 }
 
+/**
+ * Detecta si una fila parece ser de headers buscando "tipo" (canónico)
+ * en sus primeras columnas. Permite que el archivo tenga totales o
+ * notas en filas anteriores al header real.
+ */
+function isHeaderRow(row: unknown[]): boolean {
+  for (let i = 0; i < Math.min(row.length, 5); i++) {
+    if (canonicalHeader(String(row[i] ?? '')) === 'tipo') return true
+  }
+  return false
+}
+
+function parseYesNo(raw: string): boolean {
+  const s = (raw ?? '').trim().toUpperCase()
+  return s === 'SI' || s === 'SÍ' || s === 'YES' || s === 'Y' || s === 'X' || s === '1' || s === 'TRUE'
+}
+
+/**
+ * Si las 3 columnas SI/NO de estampado están presentes en la fila,
+ * deriva el valor de `estampado` desde la combinación marcada y lo
+ * agrega al row. La columna `estampado` original (si vino) se respeta
+ * solo cuando no hay flags marcados.
+ */
+function deriveEstampado(
+  row: Record<string, string>,
+  hasYesNoCols: boolean,
+): void {
+  if (!hasYesNoCols) return
+  const punto = parseYesNo(row[ESTAMPADO_COLS.punto] ?? '')
+  const bordado = parseYesNo(row[ESTAMPADO_COLS.bordado] ?? '')
+  const completo = parseYesNo(row[ESTAMPADO_COLS.completo] ?? '')
+
+  if (!punto && !bordado && !completo) {
+    if (!row.estampado) row.estampado = 'ninguno'
+    return
+  }
+  if (completo && punto && bordado) row.estampado = 'triple_completo'
+  else if (completo && punto)        row.estampado = 'doble_punto_y_completo'
+  else if (completo && bordado)      row.estampado = 'doble_bordado_y_completo'
+  else if (completo)                 row.estampado = 'completo_dtg'
+  else if (bordado)                  row.estampado = 'punto_corazon_bordado'
+  else if (punto)                    row.estampado = 'punto_corazon_estampado'
+}
+
+/**
+ * Consolida filas duplicadas por (tipo, producto, color, talla, diseño,
+ * estampado). Suma cantidades y conserva el primer costo y precio
+ * positivos. Devuelve la lista deduplicada y el conteo original.
+ */
+function consolidarDuplicados(rows: Record<string, string>[]): {
+  rows: Record<string, string>[]
+  duplicados: number
+} {
+  const map = new Map<string, Record<string, string>>()
+  let duplicados = 0
+  for (const r of rows) {
+    const key = [
+      (r.tipo ?? '').toLowerCase().trim(),
+      (r.producto_base ?? '').toLowerCase().trim(),
+      (r.color ?? '').toLowerCase().trim(),
+      (r.talla ?? '').toLowerCase().trim(),
+      (r.diseno ?? '').toLowerCase().trim(),
+      (r.estampado ?? 'ninguno').toLowerCase().trim(),
+    ].join('|')
+    const prev = map.get(key)
+    if (!prev) {
+      map.set(key, { ...r })
+      continue
+    }
+    duplicados++
+    const cantPrev = Number(prev.cantidad ?? 0) || 0
+    const cantNew = Number(r.cantidad ?? 0) || 0
+    prev.cantidad = String(cantPrev + cantNew)
+    if ((Number(prev.costo_unit ?? 0) || 0) === 0 && (Number(r.costo_unit ?? 0) || 0) > 0) {
+      prev.costo_unit = r.costo_unit ?? prev.costo_unit
+    }
+    if ((Number(prev.precio_venta ?? 0) || 0) === 0 && (Number(r.precio_venta ?? 0) || 0) > 0) {
+      prev.precio_venta = r.precio_venta ?? prev.precio_venta
+    }
+    if (r.observacion && !prev.observacion?.includes(r.observacion)) {
+      prev.observacion = prev.observacion ? `${prev.observacion} · ${r.observacion}` : r.observacion
+    }
+  }
+  return { rows: [...map.values()], duplicados }
+}
+
 const rowSchema = z.object({
   tipo: z.enum(Constants.public.Enums.tipo_producto),
   producto_base: z.string().trim().min(1, 'producto_base requerido'),
@@ -96,7 +205,9 @@ const rowSchema = z.object({
     z.enum(Constants.public.Enums.tipo_estampado),
   ),
   cantidad: z.coerce.number().int().min(0).default(0),
-  costo_unit: z.coerce.number().min(0),
+  // costo_unit = 0 se permite (variantes "sin costo" se identifican
+  // después en /admin/variantes con el filtro "Sin costo definido").
+  costo_unit: z.coerce.number().min(0).default(0),
   precio_venta: z.coerce.number().min(0),
   zona: z.string().trim().optional().default(''),
   observacion: z.string().trim().optional().default(''),
@@ -111,6 +222,14 @@ export type ParsedSheet = {
   rows: Record<string, string>[]
   missingHeaders: string[]
   unknownHeaders: string[]
+  /** Filas crudas antes de consolidar duplicados (informativo). */
+  filasCrudas: number
+  /** Cuántas filas se fusionaron por clave duplicada. */
+  duplicadosConsolidados: number
+  /** Fila (1-based) donde se detectó el header — útil cuando no es la 1. */
+  headerRowAt: number
+  /** True si el archivo tenía las 3 columnas SI/NO de estampado. */
+  detectadasColumnasYesNo: boolean
 }
 
 /** Parsea CSV o XLSX según el tipo de archivo. */
@@ -134,7 +253,7 @@ export function parseCSV(text: string): ParsedSheet {
     headers.forEach((h, idx) => { row[h] = (values[idx] ?? '').trim() })
     rows.push(row)
   }
-  return buildParsed(headers, originalHeaders, rows)
+  return buildParsed(headers, originalHeaders, rows, 1)
 }
 
 export function parseXLSX(buffer: ArrayBuffer): ParsedSheet {
@@ -142,7 +261,6 @@ export function parseXLSX(buffer: ArrayBuffer): ParsedSheet {
   const firstSheet = wb.Sheets[wb.SheetNames[0]]
   if (!firstSheet) return emptyParsed()
 
-  // Leemos como matriz para preservar el orden de columnas.
   const aoa = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
     header: 1,
     defval: '',
@@ -151,30 +269,86 @@ export function parseXLSX(buffer: ArrayBuffer): ParsedSheet {
   })
   if (aoa.length === 0) return emptyParsed()
 
-  const originalHeaders = (aoa[0] as unknown[]).map(h => String(h ?? '').trim())
+  // Detectar header row dentro de las primeras 5 filas. Soporta archivos
+  // que tienen totales o notas en la fila 0 (formato real de JP).
+  let headerRowIdx = -1
+  for (let i = 0; i < Math.min(aoa.length, 5); i++) {
+    if (isHeaderRow(aoa[i] as unknown[])) {
+      headerRowIdx = i
+      break
+    }
+  }
+  if (headerRowIdx === -1) headerRowIdx = 0 // fallback al primer row
+
+  const originalHeaders = (aoa[headerRowIdx] as unknown[]).map(h => String(h ?? '').trim())
   const headers = originalHeaders.map(canonicalHeader)
+
+  // Si vinieron las 3 columnas SI/NO con sus aliases, las renombramos a
+  // las claves canónicas para que `deriveEstampado` las encuentre.
+  const aliasedHeaders = headers.map(h => {
+    const canonical = ESTAMPADO_ALIASES[h]
+    return canonical ? ESTAMPADO_COLS[canonical] : h
+  })
+  const hasYesNoCols =
+    aliasedHeaders.includes(ESTAMPADO_COLS.punto) &&
+    aliasedHeaders.includes(ESTAMPADO_COLS.bordado) &&
+    aliasedHeaders.includes(ESTAMPADO_COLS.completo)
+
   const rows: Record<string, string>[] = []
-  for (let i = 1; i < aoa.length; i++) {
+  for (let i = headerRowIdx + 1; i < aoa.length; i++) {
     const values = aoa[i] as unknown[]
     const row: Record<string, string> = {}
-    headers.forEach((h, idx) => { row[h] = String(values[idx] ?? '').trim() })
-    // saltar filas totalmente vacías
+    aliasedHeaders.forEach((h, idx) => { row[h] = String(values[idx] ?? '').trim() })
     if (Object.values(row).every(v => !v)) continue
+    deriveEstampado(row, hasYesNoCols)
     rows.push(row)
   }
-  return buildParsed(headers, originalHeaders, rows)
+  return buildParsed(aliasedHeaders, originalHeaders, rows, headerRowIdx + 1, hasYesNoCols)
 }
 
 function emptyParsed(): ParsedSheet {
-  return { headers: [], originalHeaders: [], rows: [], missingHeaders: [...EXPECTED_COLUMNS], unknownHeaders: [] }
+  return {
+    headers: [],
+    originalHeaders: [],
+    rows: [],
+    missingHeaders: [...EXPECTED_COLUMNS],
+    unknownHeaders: [],
+    filasCrudas: 0,
+    duplicadosConsolidados: 0,
+    headerRowAt: 0,
+    detectadasColumnasYesNo: false,
+  }
 }
 
-function buildParsed(headers: string[], original: string[], rows: Record<string, string>[]): ParsedSheet {
+function buildParsed(
+  headers: string[],
+  original: string[],
+  rows: Record<string, string>[],
+  headerRowAt: number,
+  detectadasColumnasYesNo = false,
+): ParsedSheet {
   // Columnas críticas que no tienen default en el schema
-  const REQUIRED = ['tipo', 'producto_base', 'costo_unit', 'precio_venta']
+  const REQUIRED = ['tipo', 'producto_base', 'precio_venta']
   const missingHeaders = REQUIRED.filter(c => !headers.includes(c))
-  const unknownHeaders = headers.filter(h => h && !EXPECTED_COLUMNS.includes(h as typeof EXPECTED_COLUMNS[number]))
-  return { headers, originalHeaders: original, rows, missingHeaders, unknownHeaders }
+
+  const KNOWN: string[] = [...EXPECTED_COLUMNS, ...Object.values(ESTAMPADO_COLS)]
+  const unknownHeaders = headers.filter(h => h && !KNOWN.includes(h))
+
+  // Consolidar duplicados (suma cantidad, primera tiene prioridad de costo/precio)
+  const filasCrudas = rows.length
+  const { rows: consolidadas, duplicados } = consolidarDuplicados(rows)
+
+  return {
+    headers,
+    originalHeaders: original,
+    rows: consolidadas,
+    missingHeaders,
+    unknownHeaders,
+    filasCrudas,
+    duplicadosConsolidados: duplicados,
+    headerRowAt,
+    detectadasColumnasYesNo,
+  }
 }
 
 function splitCSVLine(line: string): string[] {
@@ -194,7 +368,7 @@ function splitCSVLine(line: string): string[] {
 /* ─── Import ─────────────────────────────────────────────────────── */
 
 export async function importRows(rows: Record<string, string>[]): Promise<ImportResult> {
-  const result: ImportResult = { ok: 0, failed: 0, errors: [], created: [] }
+  const result: ImportResult = { ok: 0, failed: 0, errors: [], created: [], sinCosto: 0 }
 
   const [{ data: parametros }, { data: disenos }] = await Promise.all([
     supabase.from('parametros_costo').select('*').eq('activo', true),
@@ -307,6 +481,7 @@ export async function importRows(rows: Record<string, string>[]): Promise<Import
       }
 
       result.ok++
+      if (parsed.costo_unit === 0) result.sinCosto++
       result.created.push({ sku, productoNombre: parsed.producto_base })
     } catch (err) {
       result.failed++

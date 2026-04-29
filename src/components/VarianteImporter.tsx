@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Upload, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Upload, CheckCircle, AlertTriangle, Info, Sparkles } from 'lucide-react'
 import { Button, Modal } from './ui'
 import { useToast } from './Toast'
 import {
@@ -86,13 +86,40 @@ export function VarianteImporterModal({
               <div>
                 <p className="font-medium">{file.name}</p>
                 <p className="text-xs text-[var(--color-text-label)]">
-                  {preview.rows.length} fila{preview.rows.length === 1 ? '' : 's'} · {preview.headers.length} columnas
+                  {preview.rows.length} variante{preview.rows.length === 1 ? '' : 's'} a importar · {preview.headers.length} columnas
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => { setFile(null); setPreview(null) }}>
                 Cambiar archivo
               </Button>
             </div>
+
+            {(preview.headerRowAt > 1 || preview.detectadasColumnasYesNo || preview.duplicadosConsolidados > 0) && (
+              <div className="card p-3 border border-blue-200 bg-blue-50/60">
+                <div className="flex items-start gap-2">
+                  <Sparkles size={14} className="text-blue-700 mt-0.5 shrink-0" />
+                  <div className="text-xs space-y-0.5">
+                    <p className="font-medium text-blue-900">Detección automática del archivo</p>
+                    {preview.headerRowAt > 1 && (
+                      <p className="text-blue-800">
+                        Encabezados detectados en fila {preview.headerRowAt} (filas anteriores ignoradas).
+                      </p>
+                    )}
+                    {preview.detectadasColumnasYesNo && (
+                      <p className="text-blue-800">
+                        Columnas SI/NO de estampado convertidas al campo único <code>estampado</code>.
+                      </p>
+                    )}
+                    {preview.duplicadosConsolidados > 0 && (
+                      <p className="text-blue-800">
+                        {preview.filasCrudas} filas crudas consolidadas en {preview.rows.length} variantes únicas
+                        ({preview.duplicadosConsolidados} duplicados sumados por cantidad).
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {preview.missingHeaders.length > 0 && (
               <div className="card p-3 border border-[var(--color-accent-red)] bg-red-50/60">
@@ -170,7 +197,7 @@ export function VarianteImporterModal({
 
         {result && (
           <>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="card p-4 bg-emerald-50/60 border-emerald-200">
                 <div className="flex items-center gap-2 text-emerald-700">
                   <CheckCircle size={16} />
@@ -185,7 +212,20 @@ export function VarianteImporterModal({
                 </div>
                 <p className="text-2xl font-bold text-red-800 mt-1">{result.failed}</p>
               </div>
+              <div className="card p-4 bg-amber-50/60 border-amber-200">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <Info size={16} />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Sin costo</span>
+                </div>
+                <p className="text-2xl font-bold text-amber-800 mt-1">{result.sinCosto}</p>
+              </div>
             </div>
+            {result.sinCosto > 0 && (
+              <p className="text-[11px] text-[var(--color-text-label)]">
+                Las variantes sin <code>costo_unit</code> se importaron con costo 0. Filtrá
+                "Sin costo definido" en /admin/variantes para completarlas después.
+              </p>
+            )}
 
             {result.errors.length > 0 && (
               <div className="card p-3 max-h-[200px] overflow-y-auto">
