@@ -14,8 +14,10 @@ import {
   TR,
   TD,
   EmptyState,
+  SortableTH,
   StatusBadge,
 } from '../../components/ui'
+import { toggleSort, type SortState } from '../../lib/sort'
 import { useToast } from '../../components/Toast'
 import { formatCOP, formatDate } from '../../lib/utils'
 import {
@@ -69,6 +71,10 @@ export default function Gastos() {
   const [hasta, setHasta] = useState(() => new Date().toISOString().slice(0, 10))
   const [categoriaId, setCategoriaId] = useState('')
   const [pagador, setPagador] = useState<PagadorGasto | ''>('')
+  const [sort, setSort] = useState<SortState<'fecha' | 'descripcion' | 'categoria' | 'pagador' | 'metodo' | 'distribucion' | 'monto'>>({
+    key: 'fecha',
+    dir: 'desc',
+  })
 
   const filterOpts = useMemo(
     () => ({
@@ -132,6 +138,34 @@ export default function Gastos() {
     setHasta('')
     setCategoriaId('')
     setPagador('')
+  }
+
+  const sortedGastos = useMemo(() => {
+    const sign = sort.dir === 'asc' ? 1 : -1
+    return [...gastos].sort((a, b) => {
+      const va: string | number =
+        sort.key === 'fecha'        ? a.fecha
+        : sort.key === 'descripcion' ? (a.descripcion ?? '').toLowerCase()
+        : sort.key === 'categoria'   ? (a.categoria?.nombre ?? '').toLowerCase()
+        : sort.key === 'pagador'     ? a.pagador
+        : sort.key === 'metodo'      ? a.metodo_pago
+        : sort.key === 'distribucion' ? a.distribucion
+        : Number(a.monto_total)
+      const vb: string | number =
+        sort.key === 'fecha'        ? b.fecha
+        : sort.key === 'descripcion' ? (b.descripcion ?? '').toLowerCase()
+        : sort.key === 'categoria'   ? (b.categoria?.nombre ?? '').toLowerCase()
+        : sort.key === 'pagador'     ? b.pagador
+        : sort.key === 'metodo'      ? b.metodo_pago
+        : sort.key === 'distribucion' ? b.distribucion
+        : Number(b.monto_total)
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sign
+      return String(va).localeCompare(String(vb)) * sign
+    })
+  }, [gastos, sort])
+
+  function handleSort(key: typeof sort.key) {
+    setSort(prev => toggleSort(prev, key))
   }
 
   return (
@@ -230,18 +264,18 @@ export default function Gastos() {
         <Table>
           <THead>
             <TR>
-              <TH>Fecha</TH>
-              <TH>Descripción</TH>
-              <TH>Categoría</TH>
-              <TH>Pagador</TH>
-              <TH>Método</TH>
-              <TH>Distribución</TH>
-              <TH align="right">Monto</TH>
+              <SortableTH label="Fecha" sortKey="fecha" current={sort} onClick={handleSort} />
+              <SortableTH label="Descripción" sortKey="descripcion" current={sort} onClick={handleSort} />
+              <SortableTH label="Categoría" sortKey="categoria" current={sort} onClick={handleSort} />
+              <SortableTH label="Pagador" sortKey="pagador" current={sort} onClick={handleSort} />
+              <SortableTH label="Método" sortKey="metodo" current={sort} onClick={handleSort} />
+              <SortableTH label="Distribución" sortKey="distribucion" current={sort} onClick={handleSort} />
+              <SortableTH label="Monto" sortKey="monto" current={sort} onClick={handleSort} align="right" />
               <TH />
             </TR>
           </THead>
           <TBody>
-            {gastos.map(g => (
+            {sortedGastos.map(g => (
               <TR
                 key={g.id}
                 onClick={() => navigate(`/admin/gastos/${g.id}`)}

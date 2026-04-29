@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Search, Upload } from 'lucide-react'
 import { Constants } from '../../types/database'
 import {
   Button,
@@ -8,6 +8,7 @@ import {
   Input,
   PageHeader,
   Select,
+  SortableTH,
   StatusBadge,
   Table,
   TBody,
@@ -16,6 +17,7 @@ import {
   THead,
   TR,
 } from '../../components/ui'
+import { toggleSort, type SortState } from '../../lib/sort'
 import { useToast } from '../../components/Toast'
 import { ESTAMPADO_LABELS, TIPO_PRODUCTO_LABELS } from '../../lib/catalogo'
 import { formatCOP } from '../../lib/utils'
@@ -32,7 +34,6 @@ type SortKey =
   | 'precio'
   | 'margen'
   | 'stock'
-type SortDir = 'asc' | 'desc'
 
 function sortValue(v: VarianteConJoin, key: SortKey): string | number {
   switch (key) {
@@ -64,8 +65,9 @@ export default function Variantes() {
   const [tipo, setTipo] = useState<string>('')
   const [stockBajo, setStockBajo] = useState(false)
   const [sinImagen, setSinImagen] = useState(false)
+  const [sinCosto, setSinCosto] = useState(false)
   const [includeInactive, setIncludeInactive] = useState(false)
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
+  const [sort, setSort] = useState<SortState<SortKey>>({
     key: 'sku',
     dir: 'asc',
   })
@@ -100,6 +102,7 @@ export default function Variantes() {
     if (tipo) list = list.filter(v => v.producto?.tipo === tipo)
     if (stockBajo) list = list.filter(v => (v.stock_cache ?? 0) < 3)
     if (sinImagen) list = list.filter(v => !v.imagen_url)
+    if (sinCosto) list = list.filter(v => Number(v.costo_base) === 0)
     if (s) {
       list = list.filter(v => {
         const fields = [
@@ -122,14 +125,10 @@ export default function Variantes() {
       return String(va).localeCompare(String(vb)) * sign
     })
     return sorted
-  }, [rows, search, tipo, stockBajo, sinImagen, includeInactive, sort])
+  }, [rows, search, tipo, stockBajo, sinImagen, sinCosto, includeInactive, sort])
 
-  function toggleSort(key: SortKey) {
-    setSort(prev =>
-      prev.key === key
-        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: 'asc' },
-    )
+  function handleSort(key: SortKey) {
+    setSort(prev => toggleSort(prev, key))
   }
 
   return (
@@ -171,6 +170,10 @@ export default function Variantes() {
           Sin imagen
         </label>
         <label className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] px-2">
+          <input type="checkbox" checked={sinCosto} onChange={e => setSinCosto(e.target.checked)} style={{ width: 14, height: 14 }} />
+          Sin costo definido
+        </label>
+        <label className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] px-2">
           <input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} style={{ width: 14, height: 14 }} />
           Incluir inactivas
         </label>
@@ -191,15 +194,15 @@ export default function Variantes() {
         <Table>
           <THead>
             <TR>
-              <SortableTH label="SKU" sortKey="sku" current={sort} onClick={toggleSort} />
-              <SortableTH label="Producto" sortKey="producto" current={sort} onClick={toggleSort} />
-              <SortableTH label="Tipo" sortKey="tipo" current={sort} onClick={toggleSort} />
-              <SortableTH label="Talla / Color" sortKey="talla_color" current={sort} onClick={toggleSort} />
-              <SortableTH label="Diseño / Estampado" sortKey="diseno" current={sort} onClick={toggleSort} />
-              <SortableTH label="Costo" sortKey="costo" current={sort} onClick={toggleSort} align="right" />
-              <SortableTH label="Precio" sortKey="precio" current={sort} onClick={toggleSort} align="right" />
-              <SortableTH label="Margen" sortKey="margen" current={sort} onClick={toggleSort} align="right" />
-              <SortableTH label="Stock" sortKey="stock" current={sort} onClick={toggleSort} align="center" />
+              <SortableTH label="SKU" sortKey="sku" current={sort} onClick={handleSort} />
+              <SortableTH label="Producto" sortKey="producto" current={sort} onClick={handleSort} />
+              <SortableTH label="Tipo" sortKey="tipo" current={sort} onClick={handleSort} />
+              <SortableTH label="Talla / Color" sortKey="talla_color" current={sort} onClick={handleSort} />
+              <SortableTH label="Diseño / Estampado" sortKey="diseno" current={sort} onClick={handleSort} />
+              <SortableTH label="Costo" sortKey="costo" current={sort} onClick={handleSort} align="right" />
+              <SortableTH label="Precio" sortKey="precio" current={sort} onClick={handleSort} align="right" />
+              <SortableTH label="Margen" sortKey="margen" current={sort} onClick={handleSort} align="right" />
+              <SortableTH label="Stock" sortKey="stock" current={sort} onClick={handleSort} align="center" />
               <TH>Estado</TH>
             </TR>
           </THead>
@@ -229,7 +232,15 @@ export default function Variantes() {
                     </span>
                   )}
                 </TD>
-                <TD align="right" className="text-xs">{formatCOP(Number(v.costo_total ?? 0))}</TD>
+                <TD align="right" className="text-xs">
+                  {Number(v.costo_base) === 0 ? (
+                    <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-medium">
+                      Sin costo
+                    </span>
+                  ) : (
+                    formatCOP(Number(v.costo_total ?? 0))
+                  )}
+                </TD>
                 <TD align="right" className="font-medium">{formatCOP(Number(v.precio_venta))}</TD>
                 <TD align="right" className="text-xs">
                   {Number(v.margen_porcentaje ?? 0).toLocaleString('es-CO', { style: 'percent', maximumFractionDigits: 1 })}
@@ -253,41 +264,3 @@ export default function Variantes() {
   )
 }
 
-/**
- * Header clickeable que dispara sort por esa key. Muestra flecha
- * neutra / asc / desc según el estado actual.
- */
-function SortableTH({
-  label,
-  sortKey,
-  current,
-  onClick,
-  align,
-}: {
-  label: ReactNode
-  sortKey: SortKey
-  current: { key: SortKey; dir: SortDir }
-  onClick: (key: SortKey) => void
-  align?: 'left' | 'right' | 'center'
-}) {
-  const active = current.key === sortKey
-  const Icon = active ? (current.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
-  return (
-    <TH align={align}>
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className={`inline-flex items-center gap-1 select-none hover:text-[var(--color-text)] transition-colors ${
-          active ? 'text-[var(--color-text)]' : ''
-        } ${align === 'right' ? 'ml-auto' : ''}`}
-        style={{ minHeight: 0 }}
-      >
-        <span>{label}</span>
-        <Icon
-          size={11}
-          className={active ? '' : 'opacity-40'}
-        />
-      </button>
-    </TH>
-  )
-}

@@ -88,11 +88,15 @@ export default function Cobro() {
     }
   }
 
+  const hayCredito = pagos.some(p => p.metodo === 'credito' && p.monto > 0)
+  const necesitaCliente = hayCredito && !cliente
+
   const puedeConfirmar =
     items.length > 0 &&
     total > 0 &&
     Math.abs(sumaPagos - total) <= 1 &&
     pagos.every(p => p.monto > 0) &&
+    !necesitaCliente &&
     !submitting &&
     (!hayEfectivo || efectivoRecibido >= montoEfectivo)
 
@@ -366,6 +370,11 @@ export default function Cobro() {
 
       {/* CTA fijo centrado dentro del shell POS */}
       <POSFooterFixed>
+        {necesitaCliente && (
+          <p className="text-[11px] font-semibold text-[var(--color-accent-red)] mb-2 text-center">
+            Asociá un cliente antes de cobrar a crédito
+          </p>
+        )}
         <button
           type="button"
           onClick={handleConfirmar}

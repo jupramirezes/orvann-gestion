@@ -36,7 +36,8 @@
       "Bash(sed -i 's/^commit;$//' tmp-import/import.sql)",
       "Bash(awk 'BEGIN{n=0; f=1; fname=sprintf\\(\"tmp-import/chunk-%d.sql\", f\\)} /^with prod as/{n++; if \\(n > 10\\) {n=1; f++; fname=sprintf\\(\"tmp-import/chunk-%d.sql\", f\\)}} {print > fname}' tmp-import/variantes-only.sql)",
       "Bash(git rm *)",
-      "Bash(ipconfig)"
+      "Bash(ipconfig)",
+      "Bash(xargs wc *)"
     ]
   }
 }

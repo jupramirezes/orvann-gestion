@@ -1,6 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { cn } from '../lib/utils'
+import type { SortState } from '../lib/sort'
 
 /* ── PageHeader ─────────────────────────────────────── */
 
@@ -235,6 +236,46 @@ export function TH({ children, className, align = 'left' }: {
     )}>
       {children}
     </th>
+  )
+}
+
+/**
+ * Header clickeable que dispara sort por su `sortKey`. Asc/desc/neutro
+ * con icono. Genérico sobre el tipo de la clave.
+ */
+export function SortableTH<K extends string>({
+  label,
+  sortKey,
+  current,
+  onClick,
+  align,
+  className,
+}: {
+  label: ReactNode
+  sortKey: K
+  current: SortState<K>
+  onClick: (key: K) => void
+  align?: 'left' | 'right' | 'center'
+  className?: string
+}) {
+  const active = current.key === sortKey
+  const Icon = active ? (current.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
+  return (
+    <TH align={align} className={className}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={cn(
+          'inline-flex items-center gap-1 select-none hover:text-[var(--color-text)] transition-colors',
+          active && 'text-[var(--color-text)]',
+          align === 'right' && 'ml-auto',
+        )}
+        style={{ minHeight: 0 }}
+      >
+        <span>{label}</span>
+        <Icon size={11} className={active ? '' : 'opacity-40'} />
+      </button>
+    </TH>
   )
 }
 

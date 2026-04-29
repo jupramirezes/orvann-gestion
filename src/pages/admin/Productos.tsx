@@ -13,15 +13,16 @@ import {
   Modal,
   PageHeader,
   Select,
+  SortableTH,
   StatusBadge,
   Table,
   TBody,
   TD,
-  TH,
   THead,
   Textarea,
   TR,
 } from '../../components/ui'
+import { toggleSort, type SortState } from '../../lib/sort'
 import { useToast } from '../../components/Toast'
 import { TIPO_PRODUCTO_LABELS } from '../../lib/catalogo'
 import {
@@ -40,6 +41,8 @@ const productoSchema = z.object({
 })
 type ProductoForm = z.infer<typeof productoSchema>
 
+type SortKeyProd = 'nombre' | 'tipo' | 'marca' | 'proveedor' | 'estado'
+
 export default function Productos() {
   const [rows, setRows] = useState<ProductoConProveedor[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,6 +50,7 @@ export default function Productos() {
   const [tipo, setTipo] = useState<string>('')
   const [open, setOpen] = useState(false)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [sort, setSort] = useState<SortState<SortKeyProd>>({ key: 'nombre', dir: 'asc' })
   const { addToast } = useToast()
   const navigate = useNavigate()
 
@@ -64,6 +68,30 @@ export default function Productos() {
     })
     return () => { cancelled = true }
   }, [search, tipo, addToast])
+
+  const sortedRows = useMemo(() => {
+    const sign = sort.dir === 'asc' ? 1 : -1
+    return [...rows].sort((a, b) => {
+      const va: string | number =
+        sort.key === 'nombre'    ? a.nombre.toLowerCase()
+        : sort.key === 'tipo'    ? a.tipo
+        : sort.key === 'marca'   ? (a.marca ?? '').toLowerCase()
+        : sort.key === 'proveedor' ? (a.proveedor?.nombre ?? '').toLowerCase()
+        : a.activo ? 1 : 0
+      const vb: string | number =
+        sort.key === 'nombre'    ? b.nombre.toLowerCase()
+        : sort.key === 'tipo'    ? b.tipo
+        : sort.key === 'marca'   ? (b.marca ?? '').toLowerCase()
+        : sort.key === 'proveedor' ? (b.proveedor?.nombre ?? '').toLowerCase()
+        : b.activo ? 1 : 0
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sign
+      return String(va).localeCompare(String(vb)) * sign
+    })
+  }, [rows, sort])
+
+  function handleSort(key: SortKeyProd) {
+    setSort(prev => toggleSort(prev, key))
+  }
 
   return (
     <>
@@ -107,15 +135,15 @@ export default function Productos() {
         <Table>
           <THead>
             <TR>
-              <TH>Nombre</TH>
-              <TH>Tipo</TH>
-              <TH>Marca</TH>
-              <TH>Proveedor</TH>
-              <TH>Estado</TH>
+              <SortableTH label="Nombre" sortKey="nombre" current={sort} onClick={handleSort} />
+              <SortableTH label="Tipo" sortKey="tipo" current={sort} onClick={handleSort} />
+              <SortableTH label="Marca" sortKey="marca" current={sort} onClick={handleSort} />
+              <SortableTH label="Proveedor" sortKey="proveedor" current={sort} onClick={handleSort} />
+              <SortableTH label="Estado" sortKey="estado" current={sort} onClick={handleSort} />
             </TR>
           </THead>
           <TBody>
-            {rows.map(p => (
+            {sortedRows.map(p => (
               <TR key={p.id} onClick={() => navigate(`/admin/productos/${p.id}`)}>
                 <TD className="font-medium">{p.nombre}</TD>
                 <TD>{TIPO_PRODUCTO_LABELS[p.tipo]}</TD>
