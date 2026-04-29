@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Filter, Trash2, Pencil, Link2 } from 'lucide-react'
+import { Plus, Filter, Trash2, Pencil, Link2, Upload } from 'lucide-react'
+import { GastoImporterModal } from '../../components/GastoImporter'
 import {
   PageHeader,
   KPICard,
@@ -62,6 +63,8 @@ export default function Gastos() {
   })
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
+  const [openImport, setOpenImport] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   // Filtros: default al mes actual
   const [desde, setDesde] = useState(() => {
@@ -110,7 +113,7 @@ export default function Gastos() {
     return () => {
       cancelled = true
     }
-  }, [filterOpts, addToast])
+  }, [filterOpts, reloadKey, addToast])
 
   async function handleDelete(g: GastoConJoin) {
     if (
@@ -182,6 +185,15 @@ export default function Gastos() {
             >
               <Filter size={14} />
               Filtros
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpenImport(true)}
+              title="Importar gastos desde el Sheet"
+            >
+              <Upload size={14} />
+              Importar
             </Button>
             <Link to="/admin/gastos/nuevo">
               <Button variant="primary" size="sm">
@@ -347,6 +359,12 @@ export default function Gastos() {
           </TBody>
         </Table>
       )}
+
+      <GastoImporterModal
+        open={openImport}
+        onClose={() => setOpenImport(false)}
+        onDone={() => setReloadKey(k => k + 1)}
+      />
     </div>
   )
 }

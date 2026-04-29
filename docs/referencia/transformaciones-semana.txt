@@ -1,0 +1,53 @@
+TRANSFORMACIONES DE LA SEMANA (viernes 2026-04-25)
+====================================================
+Lista parseada del WhatsApp de JP. Cada línea = 1 transformación.
+
+Mapeo de términos del WhatsApp → enum tipo_estampado del sistema:
+- "bordado Orvann al frente" / "bordado al frente"
+    → punto_corazon_bordado, sin diseño
+- "estampado X espalda + estampado Orvann punto corazón al frente"
+    → doble_punto_y_completo, diseño X (DTG + punto estampado)
+
+Estructura: producto_origen | talla | color/variante | tipo_estampado_destino | diseño
+
+----- Camisas (bordado solo, sin diseño) -----
+Camisa | XL  | acid wash | punto_corazon_bordado | -
+Camisa | L   | acid wash | punto_corazon_bordado | -
+Camisa | XL  | acid wash | punto_corazon_bordado | -
+Camisa | M   | acid wash | punto_corazon_bordado | -
+Camisa | L   | acid wash | punto_corazon_bordado | -
+Camisa | L   | acid wash | punto_corazon_bordado | -
+Camisa | S   | negra     | punto_corazon_bordado | -
+Camisa | M   | acid wash | punto_corazon_bordado | -
+Camisa | S   | acid wash | punto_corazon_bordado | -
+Camisa | L   | negra     | punto_corazon_bordado | -
+Camisa | S   | perla     | punto_corazon_bordado | -
+Camisa | M   | blanca    | punto_corazon_bordado | -
+
+----- Camisas (DTG + punto corazón estampado) -----
+Camisa | XL  | negra   | doble_punto_y_completo | Willie
+Camisa | XL  | negra   | doble_punto_y_completo | Héctor Lavoe
+Camisa | S   | negra   | doble_punto_y_completo | Hongos
+Camisa | M   | negra   | doble_punto_y_completo | Héctor Lavoe
+Camisa | XL  | Blanca  | doble_punto_y_completo | Kobe
+Camisa | L   | perla   | doble_punto_y_completo | Willie Colon
+Camisa | XL  | Blanca  | doble_punto_y_completo | Kobe
+Camisa | L   | Blanca  | doble_punto_y_completo | Kobe
+
+----- Buzos (bordado solo) -----
+Buzo | L    | negro  | punto_corazon_bordado | -
+Buzo | XXL  | negro  | punto_corazon_bordado | -
+Buzo | L    | beige  | punto_corazon_bordado | -
+
+----- Chompas (bordado solo) -----
+Chompa | M | negra  | punto_corazon_bordado | -
+Chompa | M | negra  | punto_corazon_bordado | -
+Chompa | L | perla  | punto_corazon_bordado | -
+
+NOTA: Aplicar después de cargar el inventario actualizado. Cada línea
+genera una fila en `transformaciones` con costo según parametros_costo.
+Si la variante destino no existe, se crea automáticamente con SKU
+generado por fn_generar_sku.
+
+PRÓXIMO PASO: script `scripts/aplicar-transformaciones-semana.mjs` que
+lee este archivo + matches contra variantes en BD + crea las filas.

@@ -41,7 +41,9 @@
       "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_teams",
       "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_projects",
       "mcp__d75988f6-c32f-4a52-be29-140279aceabf__list_deployments",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node scripts/inspeccionar-sheet.mjs)",
+      "Bash(file docs/referencia/*.xlsx)"
     ]
   }
 }
